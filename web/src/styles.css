@@ -6,14 +6,23 @@
   --glass-soft: rgba(255, 255, 255, 0.24);
   --green: #29e26f;
   --red: #ff3b30;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 * {
   box-sizing: border-box;
 }
 
+html,
 body {
   margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
   min-height: 100vh;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, Arial, sans-serif;
   background:
@@ -21,16 +30,27 @@ body {
     radial-gradient(circle at 84% 8%, rgba(41, 226, 111, 0.14), transparent 24rem),
     linear-gradient(135deg, #f7f9fd, #e9eef5);
   color: var(--ink);
+  overscroll-behavior: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
 }
 
 button {
   border: 0;
   font: inherit;
   color: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .app-shell {
   min-height: 100vh;
+  min-height: 100dvh;
   display: grid;
   place-items: center;
   padding: 24px;
@@ -620,20 +640,64 @@ button {
   .app-shell {
     padding: 0;
     background: #111;
+    height: 100dvh;
+    min-height: 100dvh;
+    overflow: hidden;
   }
 
   .phone-app {
     width: 100vw;
-    height: 100svh;
+    height: 100dvh;
+    min-height: 100dvh;
     aspect-ratio: auto;
     border-radius: 0;
+    box-shadow: none;
   }
 
   .phone-app::before {
-    top: max(10px, env(safe-area-inset-top));
+    top: max(10px, calc(var(--safe-top) + 2px));
   }
 
   .app-status {
-    top: max(16px, calc(env(safe-area-inset-top) + 8px));
+    top: max(16px, calc(var(--safe-top) + 8px));
+  }
+
+  .top-card {
+    top: max(50px, calc(var(--safe-top) + 42px));
+  }
+
+  .language-tabs {
+    top: max(130px, calc(var(--safe-top) + 122px));
+  }
+
+  .bottom-nav {
+    bottom: calc(var(--safe-bottom) + 12px);
+  }
+
+  .camera-shutter {
+    bottom: calc(var(--safe-bottom) + 74px);
+  }
+
+  .shutter-action {
+    bottom: calc(var(--safe-bottom) + 86px);
+  }
+
+  .scene-sheet {
+    bottom: calc(var(--safe-bottom) + 146px);
+    max-height: min(34vh, 260px);
+    overflow: auto;
+  }
+
+  .toast {
+    bottom: calc(var(--safe-bottom) + 148px);
+  }
+
+  .saved-sheet {
+    top: max(120px, calc(var(--safe-top) + 110px));
+    bottom: calc(var(--safe-bottom) + 12px);
+  }
+
+  .saved-list {
+    max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 210px);
   }
 }
