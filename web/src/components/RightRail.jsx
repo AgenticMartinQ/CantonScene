@@ -4,9 +4,14 @@ export default function RightRail({
   detailLevel,
   onToggleCollapsed,
   onToggleSlider,
-  onDetailChange,
+  onDetailPreview,
+  onDetailCommit,
   onFavorite,
 }) {
+  function commitDetail(event) {
+    onDetailCommit(Number(event.currentTarget.value));
+  }
+
   return (
     <aside className={`right-rail ${collapsed ? "collapsed" : ""} ${showSlider ? "show-slider" : ""}`} aria-label="Scene tools">
       <button className="rail-handle" aria-label="Toggle scene tools" onClick={onToggleCollapsed} />
@@ -23,7 +28,16 @@ export default function RightRail({
       </div>
       <div className="detail-slider" aria-label="Detail level">
         <span>More</span>
-        <input type="range" min="1" max="5" value={detailLevel} onChange={(event) => onDetailChange(Number(event.target.value))} />
+        <input
+          type="range"
+          min="1"
+          max="5"
+          value={detailLevel}
+          onChange={(event) => onDetailPreview(Number(event.target.value))}
+          onPointerUp={commitDetail}
+          onTouchEnd={commitDetail}
+          onKeyUp={commitDetail}
+        />
         <span>Less</span>
       </div>
     </aside>

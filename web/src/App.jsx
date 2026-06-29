@@ -212,11 +212,11 @@ export default function App() {
 
   async function regenerateWithDetail(nextDetail) {
     setDetailLevel(nextDetail);
-    setSliderOpen(false);
     if (!currentMediaBlob) {
       setActiveScene((scene) =>
         scene ? { ...scene, objects: mockObjects.slice(0, Math.max(1, Math.min(3, nextDetail))) } : scene,
       );
+      setSliderOpen(false);
       return;
     }
     await createSceneFromMedia(
@@ -225,6 +225,7 @@ export default function App() {
       currentMediaBlob.mediaUrl,
       currentMediaBlob.fileName,
     );
+    setSliderOpen(false);
   }
 
   function playNative() {
@@ -361,7 +362,8 @@ export default function App() {
             setSliderOpen(false);
           }}
           onToggleSlider={() => setSliderOpen((value) => !value)}
-          onDetailChange={regenerateWithDetail}
+          onDetailPreview={setDetailLevel}
+          onDetailCommit={regenerateWithDetail}
           onFavorite={saveActiveScene}
         />
 
