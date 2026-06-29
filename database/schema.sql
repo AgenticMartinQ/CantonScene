@@ -1,6 +1,6 @@
 create extension if not exists pgcrypto;
 
-create table app_users (
+create table if not exists app_users (
   id uuid primary key references auth.users(id) on delete cascade,
   email text unique,
   display_name text,
@@ -9,7 +9,7 @@ create table app_users (
   created_at timestamptz default now()
 );
 
-create table media_assets (
+create table if not exists media_assets (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references app_users(id) on delete cascade,
   media_type text not null check (media_type in ('photo', 'video', 'audio')),
@@ -23,7 +23,7 @@ create table media_assets (
   created_at timestamptz default now()
 );
 
-create table learning_scenes (
+create table if not exists learning_scenes (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references app_users(id) on delete cascade,
   media_asset_id uuid references media_assets(id) on delete cascade,
@@ -37,7 +37,7 @@ create table learning_scenes (
   updated_at timestamptz default now()
 );
 
-create table detected_objects (
+create table if not exists detected_objects (
   id uuid primary key default gen_random_uuid(),
   learning_scene_id uuid references learning_scenes(id) on delete cascade,
   english_label text not null,
@@ -53,7 +53,7 @@ create table detected_objects (
   created_at timestamptz default now()
 );
 
-create table scene_descriptions (
+create table if not exists scene_descriptions (
   id uuid primary key default gen_random_uuid(),
   learning_scene_id uuid references learning_scenes(id) on delete cascade,
   language text not null check (language in ('english', 'cantonese')),
@@ -66,7 +66,7 @@ create table scene_descriptions (
   created_at timestamptz default now()
 );
 
-create table generated_audio (
+create table if not exists generated_audio (
   id uuid primary key default gen_random_uuid(),
   learning_scene_id uuid references learning_scenes(id) on delete cascade,
   detected_object_id uuid references detected_objects(id) on delete set null,
@@ -78,7 +78,7 @@ create table generated_audio (
   created_at timestamptz default now()
 );
 
-create table favorites (
+create table if not exists favorites (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references app_users(id) on delete cascade,
   learning_scene_id uuid references learning_scenes(id) on delete cascade,
@@ -87,7 +87,7 @@ create table favorites (
   created_at timestamptz default now()
 );
 
-create table practice_targets (
+create table if not exists practice_targets (
   id uuid primary key default gen_random_uuid(),
   learning_scene_id uuid references learning_scenes(id) on delete cascade,
   detected_object_id uuid references detected_objects(id) on delete set null,
@@ -99,7 +99,7 @@ create table practice_targets (
   created_at timestamptz default now()
 );
 
-create table pronunciation_attempts (
+create table if not exists pronunciation_attempts (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references app_users(id) on delete cascade,
   practice_target_id uuid references practice_targets(id) on delete cascade,
@@ -112,7 +112,7 @@ create table pronunciation_attempts (
   created_at timestamptz default now()
 );
 
-create table pronunciation_score_details (
+create table if not exists pronunciation_score_details (
   id uuid primary key default gen_random_uuid(),
   attempt_id uuid references pronunciation_attempts(id) on delete cascade,
   unit_type text not null check (unit_type in ('syllable', 'word', 'sentence')),
@@ -125,7 +125,7 @@ create table pronunciation_score_details (
   end_ms int
 );
 
-create table ai_processing_jobs (
+create table if not exists ai_processing_jobs (
   id uuid primary key default gen_random_uuid(),
   learning_scene_id uuid references learning_scenes(id) on delete cascade,
   job_type text not null check (job_type in ('vision', 'cantonese_expression', 'cantonese_qa', 'tts', 'pronunciation')),
@@ -136,7 +136,7 @@ create table ai_processing_jobs (
   completed_at timestamptz
 );
 
-create table model_runs (
+create table if not exists model_runs (
   id uuid primary key default gen_random_uuid(),
   job_id uuid references ai_processing_jobs(id) on delete cascade,
   provider text not null,
