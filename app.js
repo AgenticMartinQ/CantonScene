@@ -12,6 +12,7 @@ const state = {
   activeScene: null,
   selectedObjectId: null,
   savedScenes: loadSavedScenes(),
+  currentMediaBlob: null,
 };
 
 const els = {
@@ -178,9 +179,16 @@ function takePhoto() {
   if (els.feed.videoWidth) {
     context.drawImage(els.feed, 0, 0, width, height);
   }
-  const dataUrl = els.feed.videoWidth ? canvas.toDataURL("image/jpeg", 0.86) : "assets/hong-kong-camera-bg.png";
-  showCapturedImage(dataUrl);
-  createScene("photo", dataUrl);
+  if (!els.feed.videoWidth) {
+    showCapturedImage("assets/hong-kong-camera-bg.png");
+    createMockScene("photo", "assets/hong-kong-camera-bg.png");
+    return;
+  }
+  canvas.toBlob((blob) => {
+    const url = URL.createObjectURL(blob);
+    showCapturedImage(url);
+    createSceneFromMedia("photo", blob, url, "capture.jpg");
+  }, "image/jpeg", 0.86);
 }
 
 function startVideoRecording() {
@@ -221,7 +229,7 @@ function finishVideoRecording() {
   const blob = new Blob(state.recordChunks, { type: "video/webm" });
   const url = URL.createObjectURL(blob);
   showCapturedVideo(url);
-  createScene("video", url);
+  createSceneFromMedia("video", blob, url, "capture.webm");
 }
 
 function handleUpload(event) {
@@ -231,7 +239,7 @@ function handleUpload(event) {
   const type = file.type.startsWith("video") ? "video" : "photo";
   if (type === "video") showCapturedVideo(url);
   else showCapturedImage(url);
-  createScene(type, url, file.name);
+  createSceneFromMedia(type, file, url, file.name);
   event.target.value = "";
 }
 
@@ -247,7 +255,51 @@ function showCapturedVideo(url) {
   els.capturedVideo.classList.add("visible");
 }
 
-function createScene(type, mediaUrl, fileName = "") {
+async function createSceneFromMedia(type, mediaBlob, mediaUrl, fileName = "") {
+  state.currentMediaBlob = mediaBlob;
+  if (location.protocol !== "file:") {
+    try {
+      await createBackendScene(type, mediaBlob, mediaUrl, fileName);
+      return;
+    } catch (error) {
+      console.warn(error);
+      showToast("Backend unavailable. Using demo scene.");
+    }
+  }
+  createMockScene(type, mediaUrl, fileName);
+}
+
+async function createBackendScene(type, mediaBlob, mediaUrl, fileName) {
+  els.processing.querySelector("strong").textContent = "Reading the scene...";
+  els.processing.hidden = false;
+  const form = new FormData();
+  form.append("scene_type", type);
+  form.append("detail_level", String(state.detailLevel));
+  form.append("media", mediaBlob, fileName || (type === "video" ? "scene.webm" : "scene.jpg"));
+
+  const response = await fetch("/api/scenes", {
+    method: "POST",
+    body: form,
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Scene API failed: ${response.status} ${errorText}`);
+  }
+  const scene = await response.json();
+  els.processing.hidden = true;
+  state.activeScene = {
+    ...scene,
+    mediaUrl,
+    fileName,
+    attempts: [],
+  };
+  state.selectedObjectId = state.activeScene.objects[0]?.id;
+  renderObjects(state.activeScene.objects);
+  setSelectedObject(state.selectedObjectId);
+  showToast(type === "video" ? "Video scene ready" : "Photo objects ready");
+}
+
+function createMockScene(type, mediaUrl, fileName = "") {
   state.activeScene = {
     id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
     type,
@@ -266,6 +318,18 @@ function createScene(type, mediaUrl, fileName = "") {
 
 function processCurrentScene(message = "Reading the scene...") {
   if (!state.activeScene) return;
+  if (location.protocol !== "file:" && state.currentMediaBlob) {
+    createBackendScene(
+      state.activeScene.type,
+      state.currentMediaBlob,
+      state.activeScene.mediaUrl,
+      state.activeScene.fileName || "scene.jpg",
+    ).catch((error) => {
+      console.warn(error);
+      showToast("Could not regenerate. Keeping current scene.");
+    });
+    return;
+  }
   els.processing.querySelector("strong").textContent = message;
   els.processing.hidden = false;
   window.setTimeout(() => {

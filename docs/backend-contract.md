@@ -99,3 +99,15 @@ Output:
 10. User can save scene or create pronunciation attempts.
 
 The static MVP currently mocks steps 4-9 in `app.js`.
+
+## Current Local Server
+
+`server.mjs` is the first no-framework backend bridge. It implements:
+
+- `GET /api/health`
+- `POST /api/scenes`
+- Static file serving for `app.html`
+
+The server reads `.env.local`, uploads media to the `media` bucket, inserts
+`media_assets`, `learning_scenes`, `detected_objects`, and `scene_descriptions`,
+then returns the scene payload to the browser.

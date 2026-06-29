@@ -70,8 +70,27 @@ Required later:
 
 ```text
 SUPABASE_URL
-SUPABASE_ANON_KEY
-SUPABASE_SERVICE_ROLE_KEY
+SUPABASE_PUBLISHABLE_KEY
+SUPABASE_SECRET_KEY
 GEMINI_API_KEY
 GEMINI_MODEL
 ```
+
+## Real Backend Preview
+
+After `.env.local` is filled and the Supabase schema/buckets exist, run:
+
+```bash
+npm run dev
+```
+
+Then open:
+
+```text
+http://localhost:8787/app.html
+```
+
+When opened from localhost, the app posts captured/uploaded media to `/api/scenes`.
+The local server keeps the Supabase secret key and Gemini key server-side, uploads
+media into Supabase Storage, asks Gemini for English-first scene understanding,
+and writes scene/object rows into Supabase Postgres.

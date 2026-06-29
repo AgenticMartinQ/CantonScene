@@ -1,5 +1,7 @@
+create extension if not exists pgcrypto;
+
 create table app_users (
-  id uuid primary key,
+  id uuid primary key references auth.users(id) on delete cascade,
   email text unique,
   display_name text,
   native_language text default 'en',
