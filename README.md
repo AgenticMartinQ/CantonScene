@@ -6,10 +6,19 @@ The product lets learners capture or upload real-world photos and short videos, 
 
 ## Current MVP
 
-Open the working prototype:
+The active MVP has been migrated to React under `web/`.
+
+Run the API server and web app in two terminals:
+
+```bash
+pnpm run dev:api
+pnpm run dev:web
+```
+
+Then open:
 
 ```text
-app.html
+http://127.0.0.1:5173/
 ```
 
 Current features:
@@ -18,7 +27,8 @@ Current features:
 - Upload photo/video.
 - Browser camera capture where supported.
 - Tap shutter for photo, long-press for short video.
-- Mock object detection cards.
+- Supabase/Gemini backend bridge when running through the React dev server.
+- Demo fallback cards if backend processing is unavailable.
 - English, Cantonese, and Jyutping display.
 - Selected object card state.
 - Native and Repeat controls beside the shutter.
@@ -28,7 +38,8 @@ Current features:
 
 ## Design Files
 
-- `app.html`, `app.css`, `app.js`: active MVP prototype.
+- `web/`: active React MVP.
+- `app.html`, `app.css`, `app.js`: archived static MVP prototype.
 - `learning-lens-control-options.html`: latest selected design exploration.
 - `learning-lens-v2.html`: earlier focused Learning Lens review.
 - `index.html`, `styles.css`: five-option design comparison.
@@ -48,7 +59,7 @@ Target stack:
 - Cantonese TTS provider abstraction.
 - Pronunciation scoring with stored user attempts and score details.
 
-## Local Preview
+## Static Prototype Preview
 
 The static prototype can be opened directly in a browser. For camera and microphone permissions, use a local server:
 
@@ -81,16 +92,18 @@ GEMINI_MODEL
 After `.env.local` is filled and the Supabase schema/buckets exist, run:
 
 ```bash
-npm run dev
+pnpm run dev:api
+pnpm run dev:web
 ```
 
 Then open:
 
 ```text
-http://localhost:8787/app.html
+http://127.0.0.1:5173/
 ```
 
-When opened from localhost, the app posts captured/uploaded media to `/api/scenes`.
-The local server keeps the Supabase secret key and Gemini key server-side, uploads
-media into Supabase Storage, asks Gemini for English-first scene understanding,
-and writes scene/object rows into Supabase Postgres.
+The React dev server proxies `/api/*` to the local Node backend at
+`http://127.0.0.1:8787`. The local server keeps the Supabase secret key and
+Gemini key server-side, uploads media into Supabase Storage, asks Gemini for
+English-first scene understanding, and writes scene/object rows into Supabase
+Postgres.
