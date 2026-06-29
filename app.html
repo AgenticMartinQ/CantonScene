@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>CantonScene MVP</title>
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="phone-app" aria-label="CantonScene MVP">
+        <video class="camera-feed" playsinline muted></video>
+        <img class="captured-media" alt="" />
+        <video class="captured-video" playsinline controls></video>
+        <div class="camera-fallback"></div>
+        <div class="camera-scrim"></div>
+
+        <header class="app-status">
+          <span>9:41</span>
+          <strong>CantonScene</strong>
+          <span>5G</span>
+        </header>
+
+        <section class="top-card">
+          <div>
+            <small>Today’s focus</small>
+            <strong>Street Cantonese</strong>
+          </div>
+          <button class="profile-button" aria-label="Profile">◐</button>
+        </section>
+
+        <div class="language-tabs" aria-label="Language display">
+          <button data-lang="english">English</button>
+          <button data-lang="cantonese">粵語</button>
+          <button class="active" data-lang="both">Both</button>
+        </div>
+
+        <section class="object-layer" aria-live="polite"></section>
+
+        <aside class="right-rail collapsed" aria-label="Scene tools">
+          <button class="rail-handle" aria-label="Expand scene tools"></button>
+          <div class="rail-buttons">
+            <button class="detail-button" aria-label="Tune detail">↕</button>
+            <button class="favorite-button" aria-label="Save scene">♡</button>
+            <button class="settings-button" aria-label="Settings">⚙</button>
+          </div>
+          <div class="detail-slider" aria-label="Detail level">
+            <span>More</span>
+            <input type="range" min="1" max="5" value="3" />
+            <span>Less</span>
+          </div>
+        </aside>
+
+        <button class="shutter-action native-action" aria-label="Play native audio">
+          <b>▶</b>
+          <span>Native</span>
+        </button>
+        <button class="camera-shutter" aria-label="Tap for photo, hold for video">
+          <span class="record-progress"></span>
+          <i></i>
+        </button>
+        <button class="shutter-action repeat-action" aria-label="Record repeat attempt">
+          <b>●</b>
+          <span>Repeat</span>
+        </button>
+
+        <nav class="bottom-nav" aria-label="Primary">
+          <button class="upload-nav">Upload</button>
+          <button class="camera-nav active">Camera</button>
+          <button class="saved-nav">Saved</button>
+        </nav>
+
+        <input class="upload-input" type="file" accept="image/*,video/*" hidden />
+
+        <section class="processing-panel" hidden>
+          <div class="spinner"></div>
+          <strong>Reading the scene...</strong>
+          <span>Detecting objects and preparing English-first learning cards.</span>
+        </section>
+
+        <section class="scene-sheet" hidden>
+          <button class="sheet-close" aria-label="Close">×</button>
+          <small class="sheet-eyebrow">Selected</small>
+          <h1></h1>
+          <p class="sheet-cantonese"></p>
+          <p class="sheet-jyutping"></p>
+          <p class="sheet-english"></p>
+          <div class="score-row" hidden>
+            <strong></strong>
+            <span></span>
+          </div>
+        </section>
+
+        <section class="saved-sheet" hidden>
+          <header>
+            <div>
+              <small>Saved library</small>
+              <strong>Practice again</strong>
+            </div>
+            <button class="saved-close" aria-label="Close saved scenes">×</button>
+          </header>
+          <div class="saved-list"></div>
+        </section>
+
+        <div class="toast" hidden></div>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CantonScene Home Screen Directions</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="page-shell">
+      <header class="intro">
+        <p class="kicker">CantonScene UI/UX exploration</p>
+        <h1>Five static camera-first home screen directions</h1>
+        <p>
+          Each version keeps the same core behavior: tap once for photo, long-press for a
+          10-second video, show bilingual learning controls, and use glass-like iOS-inspired
+          materials across buttons, tags, and tabs.
+        </p>
+      </header>
+
+      <section class="mockup-grid" aria-label="CantonScene home screen design versions">
+        <article class="concept concept-clarity">
+          <div class="concept-meta">
+            <span>01</span>
+            <h2>Clarity Glass</h2>
+            <p>Bright, friendly, beginner-first. The cleanest option for broad consumer appeal.</p>
+          </div>
+          <div class="phone">
+            <div class="screen">
+              <img src="assets/hong-kong-camera-bg.png" alt="" class="camera-bg" />
+              <div class="scrim light"></div>
+              <div class="status-line">
+                <span>9:41</span>
+                <span>5G · 82%</span>
+              </div>
+              <div class="top-bar">
+                <button class="icon-button">↥</button>
+                <div class="brand-pill">CantonScene</div>
+                <button class="icon-button">⚙</button>
+              </div>
+              <div class="language-toggle">
+                <button>English</button>
+                <button>粵語</button>
+                <button class="active">Both</button>
+              </div>
+              <div class="focus-tag tag-a">
+                <strong>Fruit stall</strong>
+                <small>生果檔 · sang1 gwo2 dong3</small>
+              </div>
+              <div class="focus-tag tag-b">
+                <strong>Cup</strong>
+                <small>杯 · bui1</small>
+              </div>
+              <div class="hint-card">
+                <span>Ready</span>
+                <strong>Tap to capture · Hold for video</strong>
+              </div>
+              <div class="bottom-tabs">
+                <button class="selected">⌖<span>Camera</span></button>
+                <button>◌<span>Practice</span></button>
+                <button>♡<span>Saved</span></button>
+              </div>
+              <button class="shutter">
+                <span></span>
+              </button>
+            </div>
+          </div>
+        </article>
+
+        <article class="concept concept-noir">
+          <div class="concept-meta">
+            <span>02</span>
+            <h2>Night Lens</h2>
+            <p>Premium, cinematic, high contrast. Feels closer to a serious camera app.</p>
+          </div>
+          <div class="phone">
+            <div class="screen">
+              <img src="assets/hong-kong-camera-bg.png" alt="" class="camera-bg" />
+              <div class="scrim dark"></div>
+              <div class="status-line">
+                <span>9:41</span>
+                <span>5G · 82%</span>
+              </div>
+              <div class="top-bar floating">
+                <button class="icon-button">＋</button>
+                <div class="mode-pill">Scene mode</div>
+                <button class="icon-button">⚡</button>
+              </div>
+              <div class="vertical-tools">
+                <button>EN</button>
+                <button class="active">粵</button>
+                <button>Both</button>
+              </div>
+              <div class="reticle">
+                <i></i><i></i><i></i><i></i>
+              </div>
+              <div class="caption-strip">
+                <small>Detected scene</small>
+                <strong>A busy Hong Kong street market</strong>
+                <span>條街好熱鬧，有人喺度買生果。</span>
+              </div>
+              <div class="record-ring active-ring">
+                <span>10s</span>
+              </div>
+              <button class="shutter dark-shutter"><span></span></button>
+              <div class="mini-nav">
+                <button>Upload</button>
+                <button class="selected">Camera</button>
+                <button>Me</button>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="concept concept-learner">
+          <div class="concept-meta">
+            <span>03</span>
+            <h2>Learning Lens</h2>
+            <p>More educational at first glance, with object labels always visible on the camera.</p>
+          </div>
+          <div class="phone">
+            <div class="screen">
+              <img src="assets/hong-kong-camera-bg.png" alt="" class="camera-bg zoomed" />
+              <div class="scrim soft"></div>
+              <div class="status-line dark-text">
+                <span>9:41</span>
+                <span>5G · 82%</span>
+              </div>
+              <div class="lesson-header">
+                <div>
+                  <small>Today’s focus</small>
+                  <strong>Street Cantonese</strong>
+                </div>
+                <button class="icon-button">♡</button>
+              </div>
+              <div class="segmented">
+                <button>English</button>
+                <button>粵語</button>
+                <button class="active">Both</button>
+              </div>
+              <div class="object-chip chip-left">
+                <b>Signboard</b>
+                <span>招牌 · ziu1 paai4</span>
+              </div>
+              <div class="object-chip chip-right">
+                <b>Fruit</b>
+                <span>生果 · sang1 gwo2</span>
+              </div>
+              <div class="object-chip chip-bottom">
+                <b>Person buying fruit</b>
+                <span>買緊生果 · maai5 gan2 sang1 gwo2</span>
+              </div>
+              <div class="practice-dock">
+                <button>▶ Native</button>
+                <button>● Repeat</button>
+                <button>＋ Save</button>
+              </div>
+              <div class="learner-side-panel" data-open="true">
+                <button class="side-collapse" type="button" aria-label="Collapse side controls">›</button>
+                <div class="learner-tune">
+                  <button class="side-control tune-trigger" type="button" aria-label="Adjust recognition detail">≋</button>
+                  <div class="tune-popover">
+                    <span>More</span>
+                    <input type="range" min="1" max="5" value="3" orient="vertical" aria-label="Object and scene detail level" />
+                    <span>Less</span>
+                  </div>
+                </div>
+                <button class="side-control" type="button" aria-label="Save scene to favorites">♡</button>
+                <button class="side-control" type="button" aria-label="Open settings">⚙</button>
+              </div>
+              <button class="shutter learning-shutter"><span></span></button>
+              <div class="learner-bottom-nav">
+                <button>Upload</button>
+                <button class="selected">Camera</button>
+                <button>Saved</button>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="concept concept-pro">
+          <div class="concept-meta">
+            <span>04</span>
+            <h2>Pro Capture</h2>
+            <p>Functional, app-like, and efficient. Best if CantonScene leans into creator tools.</p>
+          </div>
+          <div class="phone">
+            <div class="screen">
+              <img src="assets/hong-kong-camera-bg.png" alt="" class="camera-bg angled" />
+              <div class="scrim balanced"></div>
+              <div class="status-line">
+                <span>9:41</span>
+                <span>5G · 82%</span>
+              </div>
+              <div class="pro-toolbar">
+                <button>RAW</button>
+                <button class="active">Both</button>
+                <button>Auto</button>
+                <button>10s</button>
+              </div>
+              <div class="scan-box">
+                <span></span><span></span><span></span><span></span>
+                <div class="scan-line"></div>
+              </div>
+              <div class="pro-panel">
+                <small>Live recognition</small>
+                <div class="pro-row"><b>Tea cup</b><span>茶杯 · caa4 bui1</span></div>
+                <div class="pro-row"><b>Street stall</b><span>街邊檔 · gaai1 bin1 dong3</span></div>
+              </div>
+              <div class="side-action-stack">
+                <button>↥</button>
+                <button>⚙</button>
+                <button>♡</button>
+              </div>
+              <button class="shutter pro-shutter"><span></span></button>
+              <div class="mode-switcher">
+                <button>Photo</button>
+                <button class="selected">Hold Video</button>
+                <button>Review</button>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="concept concept-aura">
+          <div class="concept-meta">
+            <span>05</span>
+            <h2>Aura Study</h2>
+            <p>Soft, calm, and lifestyle-oriented. Best if you want learning to feel gentle.</p>
+          </div>
+          <div class="phone">
+            <div class="screen">
+              <img src="assets/hong-kong-camera-bg.png" alt="" class="camera-bg dreamy" />
+              <div class="scrim warm"></div>
+              <div class="status-line dark-text">
+                <span>9:41</span>
+                <span>5G · 82%</span>
+              </div>
+              <div class="aura-header">
+                <button class="icon-button">↥</button>
+                <div>
+                  <small>Capture Cantonese</small>
+                  <strong>Learn from what you see</strong>
+                </div>
+                <button class="icon-button">☰</button>
+              </div>
+              <div class="aura-card">
+                <small>Language view</small>
+                <div class="pill-row">
+                  <button>English</button>
+                  <button>粵語</button>
+                  <button class="active">Both</button>
+                </div>
+              </div>
+              <div class="floating-script">
+                <strong>呢度有個生果檔。</strong>
+                <span>There is a fruit stall here.</span>
+              </div>
+              <button class="shutter aura-shutter"><span></span></button>
+              <div class="countdown-glass">
+                <b>7.4</b>
+                <span>seconds left</span>
+              </div>
+              <div class="soft-nav">
+                <button class="selected">Camera</button>
+                <button>Practice</button>
+                <button>Favorites</button>
+              </div>
+            </div>
+          </div>
+        </article>
+      </section>
+    </main>
+    <script>
+      document.querySelectorAll(".learner-side-panel").forEach((panel) => {
+        const collapse = panel.querySelector(".side-collapse");
+        const tune = panel.querySelector(".tune-trigger");
+        collapse.addEventListener("click", () => {
+          panel.dataset.open = panel.dataset.open === "true" ? "false" : "true";
+        });
+        tune.addEventListener("click", () => {
+          panel.classList.toggle("show-tune");
+        });
+      });
+    </script>
+  </body>
+</html>

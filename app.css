@@ -1,0 +1,639 @@
+:root {
+  color-scheme: light;
+  --ink: #111821;
+  --muted: rgba(17, 24, 33, 0.62);
+  --glass: rgba(255, 255, 255, 0.42);
+  --glass-soft: rgba(255, 255, 255, 0.24);
+  --green: #29e26f;
+  --red: #ff3b30;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, Arial, sans-serif;
+  background:
+    radial-gradient(circle at 20% 12%, rgba(75, 163, 255, 0.2), transparent 28rem),
+    radial-gradient(circle at 84% 8%, rgba(41, 226, 111, 0.14), transparent 24rem),
+    linear-gradient(135deg, #f7f9fd, #e9eef5);
+  color: var(--ink);
+}
+
+button {
+  border: 0;
+  font: inherit;
+  color: inherit;
+}
+
+.app-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.phone-app {
+  position: relative;
+  width: min(430px, 100%);
+  aspect-ratio: 390 / 844;
+  overflow: hidden;
+  border-radius: 42px;
+  background: #111;
+  box-shadow: 0 28px 80px rgba(18, 24, 34, 0.28);
+  isolation: isolate;
+}
+
+.phone-app::before {
+  content: "";
+  position: absolute;
+  z-index: 9;
+  top: 10px;
+  left: 38%;
+  right: 38%;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.camera-feed,
+.captured-media,
+.captured-video,
+.camera-fallback {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.captured-media,
+.captured-video {
+  display: none;
+  z-index: 1;
+}
+
+.captured-media.visible,
+.captured-video.visible {
+  display: block;
+}
+
+.camera-fallback {
+  z-index: 0;
+  background: url("assets/hong-kong-camera-bg.png") center / cover;
+  transform: scale(1.08);
+}
+
+.camera-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: linear-gradient(to bottom, rgba(244, 249, 255, 0.64), rgba(255, 255, 255, 0.1) 48%, rgba(14, 18, 26, 0.5));
+  pointer-events: none;
+}
+
+.app-status,
+.top-card,
+.language-tabs,
+.object-layer,
+.right-rail,
+.shutter-action,
+.camera-shutter,
+.bottom-nav,
+.processing-panel,
+.scene-sheet,
+.saved-sheet,
+.toast {
+  position: absolute;
+  z-index: 4;
+}
+
+.app-status {
+  top: 16px;
+  left: 26px;
+  right: 26px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: rgba(17, 24, 33, 0.84);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.app-status strong {
+  font-size: 13px;
+}
+
+.top-card {
+  top: 50px;
+  left: 18px;
+  right: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px;
+  border-radius: 24px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.48), rgba(255, 255, 255, 0.2));
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72), 0 14px 36px rgba(18, 25, 36, 0.14);
+  backdrop-filter: blur(22px) saturate(1.3);
+  -webkit-backdrop-filter: blur(22px) saturate(1.3);
+}
+
+.top-card small,
+.saved-sheet small,
+.scene-sheet small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 780;
+}
+
+.top-card strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 17px;
+}
+
+.profile-button {
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.5);
+  font-weight: 900;
+}
+
+.language-tabs {
+  top: 130px;
+  left: 28px;
+  right: 28px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.46), rgba(255, 255, 255, 0.18));
+  border: 1px solid rgba(255, 255, 255, 0.56);
+  backdrop-filter: blur(22px) saturate(1.25);
+  -webkit-backdrop-filter: blur(22px) saturate(1.25);
+}
+
+.language-tabs button,
+.bottom-nav button {
+  height: 34px;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(17, 24, 33, 0.68);
+  font-size: 13px;
+  font-weight: 880;
+}
+
+.language-tabs .active,
+.bottom-nav .active {
+  background: rgba(255, 255, 255, 0.9);
+  color: #12161c;
+}
+
+.object-layer {
+  inset: 0;
+  pointer-events: none;
+}
+
+.object-card {
+  position: absolute;
+  min-width: 126px;
+  max-width: 196px;
+  padding: 10px 12px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.46), rgba(255, 255, 255, 0.2));
+  border: 1px solid rgba(255, 255, 255, 0.58);
+  color: #101722;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72), 0 14px 34px rgba(18, 25, 36, 0.14);
+  backdrop-filter: blur(20px) saturate(1.25);
+  -webkit-backdrop-filter: blur(20px) saturate(1.25);
+  pointer-events: auto;
+}
+
+.object-card.selected {
+  background: rgba(255, 255, 255, 0.94);
+  border-color: rgba(255, 255, 255, 0.95);
+}
+
+.object-card b,
+.object-card span,
+.object-card small {
+  display: block;
+}
+
+.object-card b {
+  font-size: 13px;
+}
+
+.object-card span {
+  margin-top: 3px;
+  font-size: 13px;
+  font-weight: 780;
+}
+
+.object-card small {
+  margin-top: 2px;
+  color: rgba(16, 23, 34, 0.58);
+  font-size: 10px;
+  font-weight: 760;
+}
+
+.right-rail {
+  right: 14px;
+  top: 262px;
+  min-height: 218px;
+  padding: 14px 6px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.32), rgba(255, 255, 255, 0.13));
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65), 0 14px 36px rgba(16, 24, 36, 0.18);
+  backdrop-filter: blur(24px) saturate(1.35);
+  -webkit-backdrop-filter: blur(24px) saturate(1.35);
+  transition: width 180ms ease, right 180ms ease, opacity 180ms ease;
+}
+
+.rail-handle {
+  position: absolute;
+  left: -7px;
+  top: 50%;
+  width: 5px;
+  height: 54px;
+  border-radius: 999px;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 5px 14px rgba(16, 24, 36, 0.12);
+}
+
+.rail-buttons {
+  display: grid;
+  gap: 16px;
+}
+
+.right-rail button:not(.rail-handle) {
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.5);
+  color: #142031;
+  font-size: 22px;
+  font-weight: 920;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.74);
+}
+
+.right-rail .settings-button {
+  font-size: 27px;
+}
+
+.right-rail.collapsed {
+  right: 0;
+  width: 18px;
+  padding: 0;
+  border-radius: 999px 0 0 999px;
+}
+
+.right-rail.collapsed .rail-buttons,
+.right-rail.collapsed .detail-slider {
+  display: none;
+}
+
+.detail-slider {
+  position: absolute;
+  right: 58px;
+  top: 0;
+  width: 54px;
+  height: 166px;
+  display: none;
+  justify-items: center;
+  align-items: center;
+  padding: 13px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.64);
+  backdrop-filter: blur(22px) saturate(1.25);
+  -webkit-backdrop-filter: blur(22px) saturate(1.25);
+}
+
+.right-rail.show-slider .detail-slider {
+  display: grid;
+}
+
+.detail-slider span {
+  color: rgba(17, 29, 42, 0.7);
+  font-size: 9px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.detail-slider input {
+  width: 104px;
+  height: 28px;
+  transform: rotate(-90deg);
+  accent-color: var(--green);
+}
+
+.shutter-action {
+  bottom: 94px;
+  width: 86px;
+  height: 46px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.68);
+  color: #142031;
+  font-size: 14px;
+  font-weight: 920;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82), 0 12px 28px rgba(18, 25, 36, 0.13);
+  backdrop-filter: blur(18px) saturate(1.2);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+}
+
+.shutter-action b,
+.shutter-action span {
+  display: block;
+}
+
+.shutter-action b {
+  font-size: 18px;
+  line-height: 0.9;
+}
+
+.shutter-action span {
+  margin-top: 4px;
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 880;
+}
+
+.native-action {
+  left: 28px;
+}
+
+.repeat-action {
+  right: 28px;
+}
+
+.repeat-action b {
+  color: var(--red);
+}
+
+.camera-shutter {
+  left: 50%;
+  bottom: 82px;
+  transform: translateX(-50%);
+  width: 74px;
+  height: 74px;
+  border-radius: 999px;
+  padding: 6px;
+  background:
+    conic-gradient(from 20deg, var(--green) var(--record-progress, 0deg), rgba(255, 255, 255, 0.65) 0 360deg),
+    rgba(255, 255, 255, 0.3);
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.82);
+}
+
+.camera-shutter i {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: inset 0 -6px 18px rgba(39, 50, 66, 0.14);
+}
+
+.camera-shutter.recording i {
+  border-radius: 24px;
+  transform: scale(0.64);
+  background: var(--red);
+}
+
+.bottom-nav {
+  left: 18px;
+  right: 18px;
+  bottom: 20px;
+  height: 56px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  padding: 5px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.46), rgba(255, 255, 255, 0.18));
+  border: 1px solid rgba(255, 255, 255, 0.56);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72), 0 14px 36px rgba(18, 25, 36, 0.14);
+  backdrop-filter: blur(22px) saturate(1.3);
+  -webkit-backdrop-filter: blur(22px) saturate(1.3);
+}
+
+.processing-panel,
+.scene-sheet,
+.saved-sheet {
+  left: 18px;
+  right: 18px;
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.84);
+  border: 1px solid rgba(255, 255, 255, 0.82);
+  box-shadow: inset 0 1px 0 #fff, 0 22px 60px rgba(20, 28, 42, 0.16);
+  backdrop-filter: blur(24px) saturate(1.3);
+  -webkit-backdrop-filter: blur(24px) saturate(1.3);
+}
+
+.processing-panel {
+  top: 44%;
+  transform: translateY(-50%);
+  padding: 22px;
+  text-align: center;
+}
+
+.spinner {
+  width: 34px;
+  height: 34px;
+  margin: 0 auto 14px;
+  border-radius: 999px;
+  border: 3px solid rgba(17, 24, 33, 0.12);
+  border-top-color: var(--green);
+  animation: spin 900ms linear infinite;
+}
+
+.processing-panel strong,
+.processing-panel span {
+  display: block;
+}
+
+.processing-panel span {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.scene-sheet {
+  bottom: 154px;
+  padding: 18px;
+}
+
+.sheet-close,
+.saved-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: rgba(17, 24, 33, 0.08);
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.scene-sheet h1 {
+  margin: 4px 36px 8px 0;
+  font-size: 24px;
+  line-height: 1.05;
+}
+
+.scene-sheet p {
+  margin: 6px 0 0;
+}
+
+.sheet-cantonese {
+  font-size: 19px;
+  font-weight: 800;
+}
+
+.sheet-jyutping {
+  color: rgba(17, 24, 33, 0.6);
+  font-size: 13px;
+  font-weight: 760;
+}
+
+.sheet-english {
+  color: rgba(17, 24, 33, 0.72);
+  font-size: 14px;
+  line-height: 1.42;
+}
+
+.score-row {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: rgba(41, 226, 111, 0.14);
+}
+
+.score-row strong,
+.score-row span {
+  display: block;
+}
+
+.score-row span {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.saved-sheet {
+  inset: auto 14px 14px;
+  top: 120px;
+  padding: 16px;
+}
+
+.saved-sheet header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.saved-sheet header strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 20px;
+}
+
+.saved-list {
+  display: grid;
+  gap: 10px;
+  max-height: 520px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.saved-item {
+  display: grid;
+  grid-template-columns: 62px 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 10px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.saved-thumb {
+  width: 62px;
+  height: 62px;
+  border-radius: 14px;
+  object-fit: cover;
+  background: rgba(17, 24, 33, 0.08);
+}
+
+.saved-item b,
+.saved-item span,
+.saved-item small {
+  display: block;
+}
+
+.saved-item span {
+  margin-top: 3px;
+  font-size: 13px;
+  color: rgba(17, 24, 33, 0.72);
+}
+
+.saved-item small {
+  margin-top: 4px;
+  color: rgba(17, 24, 33, 0.52);
+  font-weight: 720;
+}
+
+.toast {
+  left: 50%;
+  bottom: 160px;
+  transform: translateX(-50%);
+  max-width: 310px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(17, 24, 33, 0.86);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 760;
+  text-align: center;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 520px) {
+  .app-shell {
+    padding: 0;
+    background: #111;
+  }
+
+  .phone-app {
+    width: 100vw;
+    height: 100svh;
+    aspect-ratio: auto;
+    border-radius: 0;
+  }
+
+  .phone-app::before {
+    top: max(10px, env(safe-area-inset-top));
+  }
+
+  .app-status {
+    top: max(16px, calc(env(safe-area-inset-top) + 8px));
+  }
+}
