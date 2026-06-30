@@ -18,9 +18,10 @@ This document maps the current browser MVP to the production backend.
 
 ## Web Trial Storage Policy
 
-The web app is positioned as a trial version. Each browser trial identity is an
-email address, and each email may save up to 3 favorite photos/scenes in the web
-experience.
+The web app is positioned as a trial version. A user is asked for an email
+address the first time they press the camera shutter or save a scene. The email
+is remembered for the current browser session and used as the trial identity.
+Each email may save up to 3 favorite photos/scenes in the web experience.
 
 The current React MVP enforces this limit in local browser storage. When
 database-backed favorites are implemented, the backend must enforce the same

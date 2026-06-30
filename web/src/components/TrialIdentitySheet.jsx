@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-export default function TrialIdentitySheet({ onSubmit, onClose }) {
+export default function TrialIdentitySheet({ reason = "save", onSubmit, onClose }) {
   const [email, setEmail] = useState("");
 
   function submit(event) {
@@ -16,8 +16,12 @@ export default function TrialIdentitySheet({ onSubmit, onClose }) {
         ×
       </button>
       <small>Web trial</small>
-      <h1>Save up to 3 scenes</h1>
-      <p>Enter your email to keep a small trial library in this browser.</p>
+      <h1>{reason === "camera" ? "Register to capture" : "Save up to 3 scenes"}</h1>
+      <p>
+        {reason === "camera"
+          ? "Enter your email once this session to use the camera shutter."
+          : "Enter your email to keep a small trial library in this browser."}
+      </p>
       <form onSubmit={submit}>
         <input
           type="email"

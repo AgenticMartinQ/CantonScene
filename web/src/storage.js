@@ -5,11 +5,11 @@ function scenesKey(email) {
 }
 
 export function loadTrialEmail() {
-  return localStorage.getItem(emailKey) || "";
+  return sessionStorage.getItem(emailKey) || "";
 }
 
 export function persistTrialEmail(email) {
-  localStorage.setItem(emailKey, email.toLowerCase());
+  sessionStorage.setItem(emailKey, email.toLowerCase());
 }
 
 export function loadSavedScenes(email = "") {

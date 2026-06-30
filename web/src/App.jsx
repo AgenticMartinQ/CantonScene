@@ -41,6 +41,7 @@ export default function App() {
   const [currentMediaBlob, setCurrentMediaBlob] = useState(null);
   const [latestScore, setLatestScore] = useState(null);
   const [trialSheetOpen, setTrialSheetOpen] = useState(false);
+  const [pendingIdentityAction, setPendingIdentityAction] = useState(null);
 
   const objects = activeScene?.objects?.length ? activeScene.objects : mockObjects;
   const selectedObject = useMemo(
@@ -96,6 +97,11 @@ export default function App() {
 
   function startShutterPress(event) {
     event.preventDefault();
+    if (!trialEmail) {
+      setPendingIdentityAction("camera");
+      setTrialSheetOpen(true);
+      return;
+    }
     if (pressTimerRef.current || recordingVideo) return;
     pressTimerRef.current = window.setTimeout(() => startVideoRecording(), 420);
   }
@@ -300,6 +306,7 @@ export default function App() {
       return;
     }
     if (!trialEmail) {
+      setPendingIdentityAction("favorite");
       setTrialSheetOpen(true);
       return;
     }
@@ -320,9 +327,24 @@ export default function App() {
   function setTrialIdentity(email) {
     persistTrialEmail(email);
     setTrialEmail(email);
-    setSavedScenes(loadSavedScenes(email));
+    const scenesForEmail = loadSavedScenes(email);
     setTrialSheetOpen(false);
-    setToast(`Trial library ready for ${email}`);
+    if (pendingIdentityAction === "favorite" && activeScene) {
+      if (scenesForEmail.some((scene) => scene.id === activeScene.id)) {
+        setSavedScenes(scenesForEmail);
+        setToast("Already saved");
+      } else if (scenesForEmail.length >= WEB_TRIAL_SAVE_LIMIT) {
+        setSavedScenes(scenesForEmail);
+        setToast("Web trial limit reached: 3 saved scenes.");
+      } else {
+        setSavedScenes([activeScene, ...scenesForEmail]);
+        setToast("Saved for practice");
+      }
+    } else {
+      setSavedScenes(scenesForEmail);
+      setToast(pendingIdentityAction === "camera" ? "Email saved. Tap or hold shutter again." : `Trial library ready for ${email}`);
+    }
+    setPendingIdentityAction(null);
   }
 
   function restoreScene(scene) {
@@ -409,6 +431,7 @@ export default function App() {
           }}
           onSaved={() => {
             if (!trialEmail) {
+              setPendingIdentityAction("saved");
               setTrialSheetOpen(true);
               return;
             }
@@ -438,7 +461,16 @@ export default function App() {
           />
         ) : null}
 
-        {trialSheetOpen ? <TrialIdentitySheet onSubmit={setTrialIdentity} onClose={() => setTrialSheetOpen(false)} /> : null}
+        {trialSheetOpen ? (
+          <TrialIdentitySheet
+            reason={pendingIdentityAction === "camera" ? "camera" : "save"}
+            onSubmit={setTrialIdentity}
+            onClose={() => {
+              setTrialSheetOpen(false);
+              setPendingIdentityAction(null);
+            }}
+          />
+        ) : null}
 
         {toast ? <div className="toast">{toast}</div> : null}
       </section>
