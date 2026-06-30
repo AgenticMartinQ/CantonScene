@@ -16,10 +16,14 @@ export default function TrialIdentitySheet({ reason = "save", onSubmit, onClose 
         ×
       </button>
       <small>Web trial</small>
-      <h1>{reason === "camera" ? "Register to capture" : "Save up to 3 scenes"}</h1>
+      <h1>
+        {reason === "camera" ? "Register to capture" : reason === "upload" ? "Register to upload" : "Save up to 3 scenes"}
+      </h1>
       <p>
         {reason === "camera"
           ? "Enter your email once this session to use the camera shutter."
+          : reason === "upload"
+            ? "Enter your email once this session to analyze an uploaded photo or video."
           : "Enter your email to keep a small trial library in this browser."}
       </p>
       <form onSubmit={submit}>

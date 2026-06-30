@@ -4,7 +4,11 @@ function scenesKey(email) {
   return `cantonscene.savedScenes.${email.toLowerCase()}`;
 }
 
-function captureCountsKey(email) {
+function trialUsageKey(email) {
+  return `cantonscene.trialUsage.${email.toLowerCase() || "session"}`;
+}
+
+function legacyCaptureCountsKey(email) {
   return `cantonscene.captureCounts.${email.toLowerCase() || "session"}`;
 }
 
@@ -16,20 +20,25 @@ export function persistTrialEmail(email) {
   sessionStorage.setItem(emailKey, email.toLowerCase());
 }
 
-export function loadTrialCaptureCounts(email = "") {
+export function loadTrialUsage(email = "") {
   try {
-    return JSON.parse(localStorage.getItem(captureCountsKey(email)) || '{"photo":0,"video":0}');
+    const usage = JSON.parse(localStorage.getItem(trialUsageKey(email)) || "null");
+    if (usage) return { recognitions: Number(usage.recognitions || 0) };
+
+    const legacy = JSON.parse(localStorage.getItem(legacyCaptureCountsKey(email)) || '{"photo":0,"video":0}');
+    return {
+      recognitions: Number(legacy.photo || 0) + Number(legacy.video || 0),
+    };
   } catch {
-    return { photo: 0, video: 0 };
+    return { recognitions: 0 };
   }
 }
 
-export function persistTrialCaptureCounts(email = "", counts) {
+export function persistTrialUsage(email = "", usage) {
   localStorage.setItem(
-    captureCountsKey(email),
+    trialUsageKey(email),
     JSON.stringify({
-      photo: Number(counts.photo || 0),
-      video: Number(counts.video || 0),
+      recognitions: Number(usage.recognitions || 0),
     }),
   );
 }

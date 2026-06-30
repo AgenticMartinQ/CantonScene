@@ -22,15 +22,16 @@ The web app is positioned as a trial version. A user is asked for an email
 address the first time they press the camera shutter or save a scene. The email
 is remembered for the current browser session and used as the trial identity.
 Usage limits are keyed by email and inherited across later browser sessions that
-enter the same email. Each email may save up to 3 favorite photos/scenes in the
-web experience. Each email may also use the camera shutter for up to 3 photo
-captures and up to 3 video captures in the web trial.
+enter the same email. Each email may trigger up to 3 total recognition/narration
+generations in the web trial, regardless of whether they come from camera
+shutter capture or Upload. Each email may also save up to 3 scene detection
+results into Favorites.
 
 The current React MVP enforces this limit in local browser storage. When
 database-backed favorites are implemented, the backend must enforce the same
-save limit before inserting into `favorites`. When camera captures become fully
-server-accounted, the backend should also enforce the shutter capture limits
-before running Gemini processing.
+save limit before inserting into `favorites`. When web trial usage becomes fully
+server-accounted, the backend should also enforce the 3-generation limit before
+running Gemini processing.
 
 The future mobile app should use local device media storage for user-owned
 photos/videos where possible, instead of storing all user media in shared

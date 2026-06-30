@@ -3,11 +3,11 @@ import { createScene } from "./api.js";
 import { mockObjects } from "./mockData.js";
 import {
   loadSavedScenes,
-  loadTrialCaptureCounts,
   loadTrialEmail,
+  loadTrialUsage,
   persistSavedScenes,
-  persistTrialCaptureCounts,
   persistTrialEmail,
+  persistTrialUsage,
 } from "./storage.js";
 import LanguageTabs from "./components/LanguageTabs.jsx";
 import ObjectCard from "./components/ObjectCard.jsx";
@@ -19,13 +19,14 @@ import SavedSheet from "./components/SavedSheet.jsx";
 import TrialIdentitySheet from "./components/TrialIdentitySheet.jsx";
 
 const WEB_TRIAL_SAVE_LIMIT = 3;
-const WEB_TRIAL_CAPTURE_LIMIT = 3;
+const WEB_TRIAL_RECOGNITION_LIMIT = 3;
 const TRIAL_LIMIT_MESSAGE = "This trial user has reached the camera trial limits.";
 
 export default function App() {
   const feedRef = useRef(null);
   const uploadRef = useRef(null);
   const streamRef = useRef(null);
+  const pendingUploadRef = useRef(null);
   const pressTimerRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const recordChunksRef = useRef([]);
@@ -38,7 +39,7 @@ export default function App() {
   const [selectedObjectId, setSelectedObjectId] = useState("fruit");
   const [trialEmail, setTrialEmail] = useState(() => loadTrialEmail());
   const [savedScenes, setSavedScenes] = useState(() => loadSavedScenes(loadTrialEmail()));
-  const [captureCounts, setCaptureCounts] = useState(() => loadTrialCaptureCounts(loadTrialEmail()));
+  const [trialUsage, setTrialUsage] = useState(() => loadTrialUsage(loadTrialEmail()));
   const [capturedMedia, setCapturedMedia] = useState(null);
   const [processing, setProcessing] = useState(false);
   const [toast, setToast] = useState("");
@@ -71,8 +72,8 @@ export default function App() {
   }, [savedScenes, trialEmail]);
 
   useEffect(() => {
-    persistTrialCaptureCounts(trialEmail, captureCounts);
-  }, [captureCounts, trialEmail]);
+    persistTrialUsage(trialEmail, trialUsage);
+  }, [trialUsage, trialEmail]);
 
   useEffect(() => {
     if (!toast) return;
@@ -104,6 +105,13 @@ export default function App() {
     if (!file) return;
     const url = URL.createObjectURL(file);
     const type = file.type.startsWith("video") ? "video" : "photo";
+    if (!trialEmail) {
+      pendingUploadRef.current = { file, type, url, fileName: file.name };
+      setPendingIdentityAction("upload");
+      setTrialSheetOpen(true);
+      event.target.value = "";
+      return;
+    }
     setCapturedMedia({ type, url });
     createSceneFromMedia(type, file, url, file.name);
     event.target.value = "";
@@ -128,8 +136,6 @@ export default function App() {
     if (pressTimerRef.current) {
       window.clearTimeout(pressTimerRef.current);
       pressTimerRef.current = null;
-      if (!canUseCapture("photo")) return;
-      incrementCaptureCount("photo");
       takePhoto();
     }
   }
@@ -165,9 +171,6 @@ export default function App() {
       setToast("Video recording unavailable. Try Upload.");
       return;
     }
-    if (!canUseCapture("video")) return;
-    incrementCaptureCount("video");
-
     recordChunksRef.current = [];
     setRecordingVideo(true);
     const recorder = new MediaRecorder(stream);
@@ -200,7 +203,9 @@ export default function App() {
     createSceneFromMedia("video", blob, url, "capture.webm");
   }
 
-  async function createSceneFromMedia(type, mediaBlob, mediaUrl, fileName = "") {
+  async function createSceneFromMedia(type, mediaBlob, mediaUrl, fileName = "", options = {}) {
+    if (!canUseRecognition(options.usageOverride)) return;
+    incrementRecognitionCount(options.usageOverride);
     setCurrentMediaBlob({ type, mediaBlob, mediaUrl, fileName });
     try {
       setProcessing(true);
@@ -346,8 +351,8 @@ export default function App() {
     persistTrialEmail(email);
     setTrialEmail(email);
     const scenesForEmail = loadSavedScenes(email);
-    const countsForEmail = loadTrialCaptureCounts(email);
-    setCaptureCounts(countsForEmail);
+    const usageForEmail = loadTrialUsage(email);
+    setTrialUsage(usageForEmail);
     setTrialSheetOpen(false);
     if (pendingIdentityAction === "favorite" && activeScene) {
       if (scenesForEmail.some((scene) => scene.id === activeScene.id)) {
@@ -362,12 +367,13 @@ export default function App() {
       }
     } else {
       setSavedScenes(scenesForEmail);
-      if (
-        pendingIdentityAction === "camera" &&
-        Number(countsForEmail.photo || 0) >= WEB_TRIAL_CAPTURE_LIMIT &&
-        Number(countsForEmail.video || 0) >= WEB_TRIAL_CAPTURE_LIMIT
-      ) {
+      if ((pendingIdentityAction === "camera" || pendingIdentityAction === "upload") && Number(usageForEmail.recognitions || 0) >= WEB_TRIAL_RECOGNITION_LIMIT) {
         setToast(TRIAL_LIMIT_MESSAGE);
+      } else if (pendingIdentityAction === "upload" && pendingUploadRef.current) {
+        const pending = pendingUploadRef.current;
+        pendingUploadRef.current = null;
+        setCapturedMedia({ type: pending.type, url: pending.url });
+        createSceneFromMedia(pending.type, pending.file, pending.url, pending.fileName, { usageOverride: usageForEmail });
       } else if (pendingIdentityAction === "camera") {
         setToast("Email saved. Tap or hold shutter again.");
       } else if (scenesForEmail.length >= WEB_TRIAL_SAVE_LIMIT) {
@@ -379,19 +385,26 @@ export default function App() {
     setPendingIdentityAction(null);
   }
 
-  function canUseCapture(type) {
-    const used = Number(captureCounts[type] || 0);
-    if (used >= WEB_TRIAL_CAPTURE_LIMIT) {
+  function canUseRecognition(usageOverride = null) {
+    const usage = usageOverride || trialUsage;
+    const used = Number(usage.recognitions || 0);
+    if (used >= WEB_TRIAL_RECOGNITION_LIMIT) {
       setToast(TRIAL_LIMIT_MESSAGE);
       return false;
     }
     return true;
   }
 
-  function incrementCaptureCount(type) {
-    setCaptureCounts((counts) => ({
-      ...counts,
-      [type]: Number(counts[type] || 0) + 1,
+  function incrementRecognitionCount(usageOverride = null) {
+    if (usageOverride) {
+      setTrialUsage({
+        recognitions: Number(usageOverride.recognitions || 0) + 1,
+      });
+      return;
+    }
+
+    setTrialUsage((usage) => ({
+      recognitions: Number(usage.recognitions || 0) + 1,
     }));
   }
 
@@ -511,7 +524,7 @@ export default function App() {
 
         {trialSheetOpen ? (
           <TrialIdentitySheet
-            reason={pendingIdentityAction === "camera" ? "camera" : "save"}
+            reason={pendingIdentityAction === "camera" ? "camera" : pendingIdentityAction === "upload" ? "upload" : "save"}
             onSubmit={setTrialIdentity}
             onClose={() => {
               setTrialSheetOpen(false);
