@@ -33,7 +33,7 @@ Current features:
 - Selected object card state.
 - Native and Repeat controls beside the shutter.
 - Collapsed right-side control rail.
-- Local saved scene library.
+- Trial saved scene library: 3 saved photos/scenes per email identity.
 - Mock pronunciation scoring.
 
 ## Design Files

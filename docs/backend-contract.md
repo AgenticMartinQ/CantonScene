@@ -16,6 +16,20 @@ This document maps the current browser MVP to the production backend.
 
 ## API Shape
 
+## Web Trial Storage Policy
+
+The web app is positioned as a trial version. Each browser trial identity is an
+email address, and each email may save up to 3 favorite photos/scenes in the web
+experience.
+
+The current React MVP enforces this limit in local browser storage. When
+database-backed favorites are implemented, the backend must enforce the same
+limit before inserting into `favorites`.
+
+The future mobile app should use local device media storage for user-owned
+photos/videos where possible, instead of storing all user media in shared
+Supabase storage at CantonScene's cost.
+
 ### Create Scene
 
 `POST /api/scenes`

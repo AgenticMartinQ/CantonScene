@@ -1,13 +1,27 @@
-const key = "cantonscene.savedScenes";
+const emailKey = "cantonscene.trialEmail";
 
-export function loadSavedScenes() {
+function scenesKey(email) {
+  return `cantonscene.savedScenes.${email.toLowerCase()}`;
+}
+
+export function loadTrialEmail() {
+  return localStorage.getItem(emailKey) || "";
+}
+
+export function persistTrialEmail(email) {
+  localStorage.setItem(emailKey, email.toLowerCase());
+}
+
+export function loadSavedScenes(email = "") {
+  if (!email) return [];
   try {
-    return JSON.parse(localStorage.getItem(key) || "[]");
+    return JSON.parse(localStorage.getItem(scenesKey(email)) || "[]");
   } catch {
     return [];
   }
 }
 
-export function persistSavedScenes(scenes) {
-  localStorage.setItem(key, JSON.stringify(scenes.slice(0, 20)));
+export function persistSavedScenes(email, scenes) {
+  if (!email) return;
+  localStorage.setItem(scenesKey(email), JSON.stringify(scenes.slice(0, 3)));
 }

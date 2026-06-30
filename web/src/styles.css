@@ -450,7 +450,8 @@ button {
 
 .processing-panel,
 .scene-sheet,
-.saved-sheet {
+.saved-sheet,
+.trial-sheet {
   left: 18px;
   right: 18px;
   border-radius: 28px;
@@ -572,6 +573,15 @@ button {
   font-size: 20px;
 }
 
+.saved-sheet header em {
+  display: block;
+  margin-top: 3px;
+  color: rgba(17, 24, 33, 0.52);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 760;
+}
+
 .saved-list {
   display: grid;
   gap: 10px;
@@ -630,6 +640,51 @@ button {
   text-align: center;
 }
 
+.trial-sheet {
+  bottom: 154px;
+  padding: 18px;
+}
+
+.trial-sheet h1 {
+  margin: 4px 36px 8px 0;
+  font-size: 24px;
+  line-height: 1.05;
+}
+
+.trial-sheet p {
+  margin: 0 0 14px;
+  color: rgba(17, 24, 33, 0.68);
+  font-size: 14px;
+  line-height: 1.38;
+}
+
+.trial-sheet form {
+  display: grid;
+  gap: 10px;
+}
+
+.trial-sheet input,
+.trial-sheet form button {
+  width: 100%;
+  min-height: 44px;
+  border-radius: 16px;
+  font: inherit;
+}
+
+.trial-sheet input {
+  border: 1px solid rgba(17, 24, 33, 0.14);
+  padding: 0 13px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--ink);
+  font-size: 15px;
+}
+
+.trial-sheet form button {
+  background: #121821;
+  color: #fff;
+  font-weight: 850;
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -686,6 +741,10 @@ button {
     bottom: calc(var(--safe-bottom) + 146px);
     max-height: min(34vh, 260px);
     overflow: auto;
+  }
+
+  .trial-sheet {
+    bottom: calc(var(--safe-bottom) + 146px);
   }
 
   .toast {

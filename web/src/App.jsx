@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createScene } from "./api.js";
 import { mockObjects } from "./mockData.js";
-import { loadSavedScenes, persistSavedScenes } from "./storage.js";
+import { loadSavedScenes, loadTrialEmail, persistSavedScenes, persistTrialEmail } from "./storage.js";
 import LanguageTabs from "./components/LanguageTabs.jsx";
 import ObjectCard from "./components/ObjectCard.jsx";
 import RightRail from "./components/RightRail.jsx";
@@ -9,6 +9,9 @@ import ShutterControls from "./components/ShutterControls.jsx";
 import BottomNav from "./components/BottomNav.jsx";
 import SceneSheet from "./components/SceneSheet.jsx";
 import SavedSheet from "./components/SavedSheet.jsx";
+import TrialIdentitySheet from "./components/TrialIdentitySheet.jsx";
+
+const WEB_TRIAL_SAVE_LIMIT = 3;
 
 export default function App() {
   const feedRef = useRef(null);
@@ -24,7 +27,8 @@ export default function App() {
   const [detailLevel, setDetailLevel] = useState(3);
   const [activeScene, setActiveScene] = useState(null);
   const [selectedObjectId, setSelectedObjectId] = useState("fruit");
-  const [savedScenes, setSavedScenes] = useState(() => loadSavedScenes());
+  const [trialEmail, setTrialEmail] = useState(() => loadTrialEmail());
+  const [savedScenes, setSavedScenes] = useState(() => loadSavedScenes(loadTrialEmail()));
   const [capturedMedia, setCapturedMedia] = useState(null);
   const [processing, setProcessing] = useState(false);
   const [toast, setToast] = useState("");
@@ -36,6 +40,7 @@ export default function App() {
   const [recordProgress, setRecordProgress] = useState(0);
   const [currentMediaBlob, setCurrentMediaBlob] = useState(null);
   const [latestScore, setLatestScore] = useState(null);
+  const [trialSheetOpen, setTrialSheetOpen] = useState(false);
 
   const objects = activeScene?.objects?.length ? activeScene.objects : mockObjects;
   const selectedObject = useMemo(
@@ -51,8 +56,8 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    persistSavedScenes(savedScenes);
-  }, [savedScenes]);
+    persistSavedScenes(trialEmail, savedScenes);
+  }, [savedScenes, trialEmail]);
 
   useEffect(() => {
     if (!toast) return;
@@ -294,11 +299,30 @@ export default function App() {
       setToast("Capture or upload a scene first.");
       return;
     }
+    if (!trialEmail) {
+      setTrialSheetOpen(true);
+      return;
+    }
+    if (savedScenes.some((scene) => scene.id === activeScene.id)) {
+      setToast("Already saved");
+      return;
+    }
+    if (savedScenes.length >= WEB_TRIAL_SAVE_LIMIT) {
+      setToast("Web trial limit reached: 3 saved scenes.");
+      return;
+    }
     setSavedScenes((scenes) => {
-      if (scenes.some((scene) => scene.id === activeScene.id)) return scenes;
       return [activeScene, ...scenes];
     });
     setToast("Saved for practice");
+  }
+
+  function setTrialIdentity(email) {
+    persistTrialEmail(email);
+    setTrialEmail(email);
+    setSavedScenes(loadSavedScenes(email));
+    setTrialSheetOpen(false);
+    setToast(`Trial library ready for ${email}`);
   }
 
   function restoreScene(scene) {
@@ -383,7 +407,13 @@ export default function App() {
             setSavedOpen(false);
             setToast("Camera mode");
           }}
-          onSaved={() => setSavedOpen(true)}
+          onSaved={() => {
+            if (!trialEmail) {
+              setTrialSheetOpen(true);
+              return;
+            }
+            setSavedOpen(true);
+          }}
         />
 
         <input ref={uploadRef} className="upload-input" type="file" accept="image/*,video/*" hidden onChange={handleUpload} />
@@ -398,7 +428,17 @@ export default function App() {
 
         {sceneSheetOpen ? <SceneSheet object={selectedObject} score={latestScore} onClose={() => setSceneSheetOpen(false)} /> : null}
 
-        {savedOpen ? <SavedSheet scenes={savedScenes} onClose={() => setSavedOpen(false)} onRestore={restoreScene} /> : null}
+        {savedOpen ? (
+          <SavedSheet
+            scenes={savedScenes}
+            trialEmail={trialEmail}
+            saveLimit={WEB_TRIAL_SAVE_LIMIT}
+            onClose={() => setSavedOpen(false)}
+            onRestore={restoreScene}
+          />
+        ) : null}
+
+        {trialSheetOpen ? <TrialIdentitySheet onSubmit={setTrialIdentity} onClose={() => setTrialSheetOpen(false)} /> : null}
 
         {toast ? <div className="toast">{toast}</div> : null}
       </section>
