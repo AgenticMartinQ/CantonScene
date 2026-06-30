@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createScene } from "./api.js";
-import { mockObjects } from "./mockData.js";
+import { getDailyDemoScene, mockObjects } from "./mockData.js";
 import {
   loadSavedScenes,
   loadTrialEmail,
@@ -35,12 +35,13 @@ export default function App() {
 
   const [language, setLanguage] = useState("both");
   const [detailLevel, setDetailLevel] = useState(3);
-  const [activeScene, setActiveScene] = useState(null);
-  const [selectedObjectId, setSelectedObjectId] = useState("fruit");
+  const [dailyDemoScene, setDailyDemoScene] = useState(() => getDailyDemoScene());
+  const [activeScene, setActiveScene] = useState(() => getDailyDemoScene());
+  const [selectedObjectId, setSelectedObjectId] = useState(() => getDailyDemoScene().objects[0]?.id || "fruit");
   const [trialEmail, setTrialEmail] = useState(() => loadTrialEmail());
   const [savedScenes, setSavedScenes] = useState(() => loadSavedScenes(loadTrialEmail()));
   const [trialUsage, setTrialUsage] = useState(() => loadTrialUsage(loadTrialEmail()));
-  const [capturedMedia, setCapturedMedia] = useState(null);
+  const [capturedMedia, setCapturedMedia] = useState(() => ({ type: "photo", url: getDailyDemoScene().mediaUrl }));
   const [processing, setProcessing] = useState(false);
   const [toast, setToast] = useState("");
   const [savedOpen, setSavedOpen] = useState(false);
@@ -54,7 +55,7 @@ export default function App() {
   const [trialSheetOpen, setTrialSheetOpen] = useState(false);
   const [pendingIdentityAction, setPendingIdentityAction] = useState(null);
 
-  const objects = activeScene?.objects?.length ? activeScene.objects : mockObjects;
+  const objects = activeScene?.objects?.length ? activeScene.objects : dailyDemoScene.objects;
   const selectedObject = useMemo(
     () => objects.find((object) => object.id === selectedObjectId) || objects[0],
     [objects, selectedObjectId],
@@ -66,6 +67,21 @@ export default function App() {
       streamRef.current?.getTracks().forEach((track) => track.stop());
     };
   }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      const nextDemoScene = getDailyDemoScene();
+      if (nextDemoScene.id === dailyDemoScene.id) return;
+      setDailyDemoScene(nextDemoScene);
+      setActiveScene((scene) => {
+        if (scene && !scene.isDemo) return scene;
+        setCapturedMedia({ type: "photo", url: nextDemoScene.mediaUrl });
+        setSelectedObjectId(nextDemoScene.objects[0]?.id || "fruit");
+        return nextDemoScene;
+      });
+    }, 60000);
+    return () => window.clearInterval(timer);
+  }, [dailyDemoScene.id]);
 
   useEffect(() => {
     persistSavedScenes(trialEmail, savedScenes);
@@ -235,16 +251,17 @@ export default function App() {
   }
 
   function createMockScene(type, mediaUrl, fileName = "") {
+    const demoObjects = dailyDemoScene.objects.slice(0, Math.max(1, Math.min(dailyDemoScene.objects.length, detailLevel)));
     const scene = {
       id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
       type,
       mediaUrl,
       fileName,
       createdAt: new Date().toISOString(),
-      englishSummary: type === "video" ? "A person is buying fruit at a street stall." : "A busy Hong Kong street market with fruit and signboards.",
-      cantoneseSummary: type === "video" ? "有個人喺街邊檔買緊生果。" : "呢度係一條好熱鬧嘅香港街市。",
-      jyutpingSummary: type === "video" ? "jau5 go3 jan4 hai2 gaai1 bin1 dong3 maai5 gan2 sang1 gwo2." : "ni1 dou6 hai6 jat1 tiu4 hou2 jit6 naau6 ge3 hoeng1 gong2 gaai1 si5.",
-      objects: mockObjects.slice(0, Math.max(1, Math.min(3, detailLevel))),
+      englishSummary: type === "video" ? "A person is buying fruit at a street stall." : dailyDemoScene.englishSummary,
+      cantoneseSummary: type === "video" ? "有個人喺街邊檔買緊生果。" : dailyDemoScene.cantoneseSummary,
+      jyutpingSummary: type === "video" ? "jau5 go3 jan4 hai2 gaai1 bin1 dong3 maai5 gan2 sang1 gwo2." : dailyDemoScene.jyutpingSummary,
+      objects: demoObjects,
       attempts: [],
     };
     setActiveScene(scene);
@@ -257,7 +274,21 @@ export default function App() {
     setDetailLevel(nextDetail);
     if (!currentMediaBlob) {
       setActiveScene((scene) =>
-        scene ? { ...scene, objects: mockObjects.slice(0, Math.max(1, Math.min(3, nextDetail))) } : scene,
+        scene
+          ? {
+              ...scene,
+              objects: (scene.isDemo ? dailyDemoScene.objects : scene.objects?.length ? scene.objects : mockObjects).slice(
+                0,
+                Math.max(
+                  1,
+                  Math.min(
+                    (scene.isDemo ? dailyDemoScene.objects.length : scene.objects?.length) || mockObjects.length,
+                    nextDetail,
+                  ),
+                ),
+              ),
+            }
+          : scene,
       );
       setSliderOpen(false);
       return;
@@ -455,7 +486,7 @@ export default function App() {
         <section className="top-card">
           <div>
             <small>Today’s focus</small>
-            <strong>Street Cantonese</strong>
+            <strong>{activeScene?.focus || dailyDemoScene.focus}</strong>
           </div>
           <button className="profile-button" aria-label="Profile">
             ◐

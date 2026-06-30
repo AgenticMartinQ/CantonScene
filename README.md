@@ -28,6 +28,7 @@ Current features:
 - Browser camera capture where supported.
 - Tap shutter for photo, long-press for short video.
 - Supabase/Gemini backend bridge when running through the React dev server.
+- Daily anonymous demo scene with generated photo/object cards for unlimited practice.
 - Demo fallback cards if backend processing is unavailable.
 - English, Cantonese, and Jyutping display.
 - Selected object card state.
