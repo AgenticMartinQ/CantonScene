@@ -34,7 +34,7 @@ Current features:
 - Native and Repeat controls beside the shutter.
 - Collapsed right-side control rail.
 - Email prompt before first camera shutter or favorite save in a browser session.
-- Web trial camera limit: 3 shutter photos and 3 shutter videos per email/session.
+- Web trial camera limit: 3 shutter photos and 3 shutter videos per email, inherited across sessions.
 - Trial saved scene library: 3 saved photos/scenes per email identity.
 - Mock pronunciation scoring.
 

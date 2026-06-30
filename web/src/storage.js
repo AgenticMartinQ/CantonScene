@@ -18,14 +18,14 @@ export function persistTrialEmail(email) {
 
 export function loadTrialCaptureCounts(email = "") {
   try {
-    return JSON.parse(sessionStorage.getItem(captureCountsKey(email)) || '{"photo":0,"video":0}');
+    return JSON.parse(localStorage.getItem(captureCountsKey(email)) || '{"photo":0,"video":0}');
   } catch {
     return { photo: 0, video: 0 };
   }
 }
 
 export function persistTrialCaptureCounts(email = "", counts) {
-  sessionStorage.setItem(
+  localStorage.setItem(
     captureCountsKey(email),
     JSON.stringify({
       photo: Number(counts.photo || 0),

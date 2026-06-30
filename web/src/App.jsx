@@ -345,7 +345,8 @@ export default function App() {
     persistTrialEmail(email);
     setTrialEmail(email);
     const scenesForEmail = loadSavedScenes(email);
-    setCaptureCounts(loadTrialCaptureCounts(email));
+    const countsForEmail = loadTrialCaptureCounts(email);
+    setCaptureCounts(countsForEmail);
     setTrialSheetOpen(false);
     if (pendingIdentityAction === "favorite" && activeScene) {
       if (scenesForEmail.some((scene) => scene.id === activeScene.id)) {
@@ -353,14 +354,26 @@ export default function App() {
         setToast("Already saved");
       } else if (scenesForEmail.length >= WEB_TRIAL_SAVE_LIMIT) {
         setSavedScenes(scenesForEmail);
-        setToast("Web trial limit reached: 3 saved scenes.");
+        setToast("This trial user has reached the 3 saved scenes limit.");
       } else {
         setSavedScenes([activeScene, ...scenesForEmail]);
         setToast("Saved for practice");
       }
     } else {
       setSavedScenes(scenesForEmail);
-      setToast(pendingIdentityAction === "camera" ? "Email saved. Tap or hold shutter again." : `Trial library ready for ${email}`);
+      if (
+        pendingIdentityAction === "camera" &&
+        Number(countsForEmail.photo || 0) >= WEB_TRIAL_CAPTURE_LIMIT &&
+        Number(countsForEmail.video || 0) >= WEB_TRIAL_CAPTURE_LIMIT
+      ) {
+        setToast("This trial user has reached the camera trial limits.");
+      } else if (pendingIdentityAction === "camera") {
+        setToast("Email saved. Tap or hold shutter again.");
+      } else if (scenesForEmail.length >= WEB_TRIAL_SAVE_LIMIT) {
+        setToast("This trial user has reached the 3 saved scenes limit.");
+      } else {
+        setToast(`Trial library ready for ${email}`);
+      }
     }
     setPendingIdentityAction(null);
   }
@@ -370,8 +383,8 @@ export default function App() {
     if (used >= WEB_TRIAL_CAPTURE_LIMIT) {
       setToast(
         type === "photo"
-          ? "Web trial limit reached: 3 camera photos."
-          : "Web trial limit reached: 3 camera videos.",
+          ? "This trial user has reached the 3 camera photo limit."
+          : "This trial user has reached the 3 camera video limit.",
       );
       return false;
     }

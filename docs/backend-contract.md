@@ -21,8 +21,9 @@ This document maps the current browser MVP to the production backend.
 The web app is positioned as a trial version. A user is asked for an email
 address the first time they press the camera shutter or save a scene. The email
 is remembered for the current browser session and used as the trial identity.
-Each email may save up to 3 favorite photos/scenes in the web experience.
-Each email/browser session may also use the camera shutter for up to 3 photo
+Usage limits are keyed by email and inherited across later browser sessions that
+enter the same email. Each email may save up to 3 favorite photos/scenes in the
+web experience. Each email may also use the camera shutter for up to 3 photo
 captures and up to 3 video captures in the web trial.
 
 The current React MVP enforces this limit in local browser storage. When
