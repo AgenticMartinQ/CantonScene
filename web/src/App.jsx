@@ -19,8 +19,8 @@ import SavedSheet from "./components/SavedSheet.jsx";
 import TrialIdentitySheet from "./components/TrialIdentitySheet.jsx";
 
 const WEB_TRIAL_SAVE_LIMIT = 3;
-const WEB_TRIAL_RECOGNITION_LIMIT = 3;
-const TRIAL_LIMIT_MESSAGE = "This trial user has reached the camera trial limits.";
+const WEB_TRIAL_MEDIA_LIMIT = 3;
+const TRIAL_LIMIT_MESSAGE = "Trial user limit is reached. Please register on mobile Apps version to continue.";
 
 export default function App() {
   const feedRef = useRef(null);
@@ -136,6 +136,7 @@ export default function App() {
     if (pressTimerRef.current) {
       window.clearTimeout(pressTimerRef.current);
       pressTimerRef.current = null;
+      if (!canUseMediaGeneration("photo")) return;
       takePhoto();
     }
   }
@@ -152,6 +153,7 @@ export default function App() {
     if (!video.videoWidth) {
       const url = "/assets/hong-kong-camera-bg.png";
       setCapturedMedia({ type: "photo", url });
+      incrementMediaUsage("photo");
       createMockScene("photo", url);
       return;
     }
@@ -171,6 +173,7 @@ export default function App() {
       setToast("Video recording unavailable. Try Upload.");
       return;
     }
+    if (!canUseMediaGeneration("video")) return;
     recordChunksRef.current = [];
     setRecordingVideo(true);
     const recorder = new MediaRecorder(stream);
@@ -204,8 +207,14 @@ export default function App() {
   }
 
   async function createSceneFromMedia(type, mediaBlob, mediaUrl, fileName = "", options = {}) {
-    if (!canUseRecognition(options.usageOverride)) return;
-    incrementRecognitionCount(options.usageOverride);
+    if (options.countUsage !== false) {
+      if (!canUseMediaGeneration(type, options.usageOverride)) return;
+      incrementMediaUsage(type, options.usageOverride);
+    }
+    await processSceneFromMedia(type, mediaBlob, mediaUrl, fileName);
+  }
+
+  async function processSceneFromMedia(type, mediaBlob, mediaUrl, fileName = "") {
     setCurrentMediaBlob({ type, mediaBlob, mediaUrl, fileName });
     try {
       setProcessing(true);
@@ -258,6 +267,7 @@ export default function App() {
       currentMediaBlob.mediaBlob,
       currentMediaBlob.mediaUrl,
       currentMediaBlob.fileName,
+      { countUsage: false },
     );
     setSliderOpen(false);
   }
@@ -367,13 +377,18 @@ export default function App() {
       }
     } else {
       setSavedScenes(scenesForEmail);
-      if ((pendingIdentityAction === "camera" || pendingIdentityAction === "upload") && Number(usageForEmail.recognitions || 0) >= WEB_TRIAL_RECOGNITION_LIMIT) {
+      if (pendingIdentityAction === "camera" && isMediaLimitReached("photo", usageForEmail) && isMediaLimitReached("video", usageForEmail)) {
         setToast(TRIAL_LIMIT_MESSAGE);
       } else if (pendingIdentityAction === "upload" && pendingUploadRef.current) {
         const pending = pendingUploadRef.current;
-        pendingUploadRef.current = null;
-        setCapturedMedia({ type: pending.type, url: pending.url });
-        createSceneFromMedia(pending.type, pending.file, pending.url, pending.fileName, { usageOverride: usageForEmail });
+        if (isMediaLimitReached(pending.type, usageForEmail)) {
+          pendingUploadRef.current = null;
+          setToast(TRIAL_LIMIT_MESSAGE);
+        } else {
+          pendingUploadRef.current = null;
+          setCapturedMedia({ type: pending.type, url: pending.url });
+          createSceneFromMedia(pending.type, pending.file, pending.url, pending.fileName, { usageOverride: usageForEmail });
+        }
       } else if (pendingIdentityAction === "camera") {
         setToast("Email saved. Tap or hold shutter again.");
       } else if (scenesForEmail.length >= WEB_TRIAL_SAVE_LIMIT) {
@@ -385,26 +400,31 @@ export default function App() {
     setPendingIdentityAction(null);
   }
 
-  function canUseRecognition(usageOverride = null) {
+  function isMediaLimitReached(type, usageOverride = null) {
     const usage = usageOverride || trialUsage;
-    const used = Number(usage.recognitions || 0);
-    if (used >= WEB_TRIAL_RECOGNITION_LIMIT) {
+    return Number(usage[type] || 0) >= WEB_TRIAL_MEDIA_LIMIT;
+  }
+
+  function canUseMediaGeneration(type, usageOverride = null) {
+    if (isMediaLimitReached(type, usageOverride)) {
       setToast(TRIAL_LIMIT_MESSAGE);
       return false;
     }
     return true;
   }
 
-  function incrementRecognitionCount(usageOverride = null) {
+  function incrementMediaUsage(type, usageOverride = null) {
     if (usageOverride) {
       setTrialUsage({
-        recognitions: Number(usageOverride.recognitions || 0) + 1,
+        ...usageOverride,
+        [type]: Number(usageOverride[type] || 0) + 1,
       });
       return;
     }
 
     setTrialUsage((usage) => ({
-      recognitions: Number(usage.recognitions || 0) + 1,
+      ...usage,
+      [type]: Number(usage[type] || 0) + 1,
     }));
   }
 

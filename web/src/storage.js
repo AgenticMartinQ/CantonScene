@@ -5,7 +5,7 @@ function scenesKey(email) {
 }
 
 function trialUsageKey(email) {
-  return `cantonscene.trialUsage.${email.toLowerCase() || "session"}`;
+  return `cantonscene.trialMediaUsage.${email.toLowerCase() || "session"}`;
 }
 
 function legacyCaptureCountsKey(email) {
@@ -23,14 +23,20 @@ export function persistTrialEmail(email) {
 export function loadTrialUsage(email = "") {
   try {
     const usage = JSON.parse(localStorage.getItem(trialUsageKey(email)) || "null");
-    if (usage) return { recognitions: Number(usage.recognitions || 0) };
+    if (usage) {
+      return {
+        photo: Number(usage.photo || 0),
+        video: Number(usage.video || 0),
+      };
+    }
 
     const legacy = JSON.parse(localStorage.getItem(legacyCaptureCountsKey(email)) || '{"photo":0,"video":0}');
     return {
-      recognitions: Number(legacy.photo || 0) + Number(legacy.video || 0),
+      photo: Number(legacy.photo || 0),
+      video: Number(legacy.video || 0),
     };
   } catch {
-    return { recognitions: 0 };
+    return { photo: 0, video: 0 };
   }
 }
 
@@ -38,7 +44,8 @@ export function persistTrialUsage(email = "", usage) {
   localStorage.setItem(
     trialUsageKey(email),
     JSON.stringify({
-      recognitions: Number(usage.recognitions || 0),
+      photo: Number(usage.photo || 0),
+      video: Number(usage.video || 0),
     }),
   );
 }

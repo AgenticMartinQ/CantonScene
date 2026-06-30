@@ -18,20 +18,28 @@ This document maps the current browser MVP to the production backend.
 
 ## Web Trial Storage Policy
 
-The web app is positioned as a trial version. A user is asked for an email
-address the first time they press the camera shutter or save a scene. The email
-is remembered for the current browser session and used as the trial identity.
-Usage limits are keyed by email and inherited across later browser sessions that
-enter the same email. Each email may trigger up to 3 total recognition/narration
-generations in the web trial, regardless of whether they come from camera
-shutter capture or Upload. Each email may also save up to 3 scene detection
-results into Favorites.
+The web app is positioned as a trial version. A user may practice anonymously
+against the daily demo scene with its generated object cards and pronunciations
+without a usage limit. The demo scene should refresh no more than once per day.
+
+A user is asked for an email address the first time they press the camera
+shutter, use Upload, or save a scene. The email is remembered for the current
+browser session and used as the trial identity. Usage limits are keyed by email
+and inherited across later browser sessions that enter the same email. Each
+email may trigger up to 3 photo object-detection generations and up to 3 video
+narration generations in the web trial, regardless of whether the media comes
+from camera shutter capture or Upload. Adjusting the number of detected objects
+for an already processed photo, or adjusting video narration conciseness for an
+already processed clip, should regenerate that existing scene without consuming
+another trial use. Each email may also save up to 3 scene detection results into
+Favorites.
 
 The current React MVP enforces this limit in local browser storage. When
 database-backed favorites are implemented, the backend must enforce the same
 save limit before inserting into `favorites`. When web trial usage becomes fully
-server-accounted, the backend should also enforce the 3-generation limit before
-running Gemini processing.
+server-accounted, the backend should also enforce the 3-photo and 3-video
+generation limits before running Gemini processing for newly uploaded or newly
+captured media.
 
 The future mobile app should use local device media storage for user-owned
 photos/videos where possible, instead of storing all user media in shared

@@ -34,7 +34,9 @@ Current features:
 - Native and Repeat controls beside the shutter.
 - Collapsed right-side control rail.
 - Email prompt before first camera shutter or favorite save in a browser session.
-- Web trial recognition limit: 3 total object-detection/video-narration generations per email, including shutter and Upload.
+- Anonymous trial practice with the daily demo scene remains unlimited.
+- Web trial media limit after email: 3 photo object-detection generations and 3 video narration generations per email, including shutter and Upload.
+- Detail and narration conciseness adjustments regenerate the same scene without consuming another trial use.
 - Trial saved scene library: 3 saved scene detection results per email identity.
 - Mock pronunciation scoring.
 
