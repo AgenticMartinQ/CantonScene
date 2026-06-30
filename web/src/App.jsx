@@ -1,7 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createScene } from "./api.js";
 import { mockObjects } from "./mockData.js";
-import { loadSavedScenes, loadTrialEmail, persistSavedScenes, persistTrialEmail } from "./storage.js";
+import {
+  loadSavedScenes,
+  loadTrialCaptureCounts,
+  loadTrialEmail,
+  persistSavedScenes,
+  persistTrialCaptureCounts,
+  persistTrialEmail,
+} from "./storage.js";
 import LanguageTabs from "./components/LanguageTabs.jsx";
 import ObjectCard from "./components/ObjectCard.jsx";
 import RightRail from "./components/RightRail.jsx";
@@ -12,6 +19,7 @@ import SavedSheet from "./components/SavedSheet.jsx";
 import TrialIdentitySheet from "./components/TrialIdentitySheet.jsx";
 
 const WEB_TRIAL_SAVE_LIMIT = 3;
+const WEB_TRIAL_CAPTURE_LIMIT = 3;
 
 export default function App() {
   const feedRef = useRef(null);
@@ -29,6 +37,7 @@ export default function App() {
   const [selectedObjectId, setSelectedObjectId] = useState("fruit");
   const [trialEmail, setTrialEmail] = useState(() => loadTrialEmail());
   const [savedScenes, setSavedScenes] = useState(() => loadSavedScenes(loadTrialEmail()));
+  const [captureCounts, setCaptureCounts] = useState(() => loadTrialCaptureCounts(loadTrialEmail()));
   const [capturedMedia, setCapturedMedia] = useState(null);
   const [processing, setProcessing] = useState(false);
   const [toast, setToast] = useState("");
@@ -59,6 +68,10 @@ export default function App() {
   useEffect(() => {
     persistSavedScenes(trialEmail, savedScenes);
   }, [savedScenes, trialEmail]);
+
+  useEffect(() => {
+    persistTrialCaptureCounts(trialEmail, captureCounts);
+  }, [captureCounts, trialEmail]);
 
   useEffect(() => {
     if (!toast) return;
@@ -114,6 +127,8 @@ export default function App() {
     if (pressTimerRef.current) {
       window.clearTimeout(pressTimerRef.current);
       pressTimerRef.current = null;
+      if (!canUseCapture("photo")) return;
+      incrementCaptureCount("photo");
       takePhoto();
     }
   }
@@ -149,6 +164,8 @@ export default function App() {
       setToast("Video recording unavailable. Try Upload.");
       return;
     }
+    if (!canUseCapture("video")) return;
+    incrementCaptureCount("video");
 
     recordChunksRef.current = [];
     setRecordingVideo(true);
@@ -328,6 +345,7 @@ export default function App() {
     persistTrialEmail(email);
     setTrialEmail(email);
     const scenesForEmail = loadSavedScenes(email);
+    setCaptureCounts(loadTrialCaptureCounts(email));
     setTrialSheetOpen(false);
     if (pendingIdentityAction === "favorite" && activeScene) {
       if (scenesForEmail.some((scene) => scene.id === activeScene.id)) {
@@ -345,6 +363,26 @@ export default function App() {
       setToast(pendingIdentityAction === "camera" ? "Email saved. Tap or hold shutter again." : `Trial library ready for ${email}`);
     }
     setPendingIdentityAction(null);
+  }
+
+  function canUseCapture(type) {
+    const used = Number(captureCounts[type] || 0);
+    if (used >= WEB_TRIAL_CAPTURE_LIMIT) {
+      setToast(
+        type === "photo"
+          ? "Web trial limit reached: 3 camera photos."
+          : "Web trial limit reached: 3 camera videos.",
+      );
+      return false;
+    }
+    return true;
+  }
+
+  function incrementCaptureCount(type) {
+    setCaptureCounts((counts) => ({
+      ...counts,
+      [type]: Number(counts[type] || 0) + 1,
+    }));
   }
 
   function restoreScene(scene) {
