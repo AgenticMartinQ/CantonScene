@@ -20,6 +20,7 @@ import TrialIdentitySheet from "./components/TrialIdentitySheet.jsx";
 
 const WEB_TRIAL_SAVE_LIMIT = 3;
 const WEB_TRIAL_CAPTURE_LIMIT = 3;
+const TRIAL_LIMIT_MESSAGE = "This trial user has reached the camera trial limits.";
 
 export default function App() {
   const feedRef = useRef(null);
@@ -332,7 +333,7 @@ export default function App() {
       return;
     }
     if (savedScenes.length >= WEB_TRIAL_SAVE_LIMIT) {
-      setToast("Web trial limit reached: 3 saved scenes.");
+      setToast(TRIAL_LIMIT_MESSAGE);
       return;
     }
     setSavedScenes((scenes) => {
@@ -354,7 +355,7 @@ export default function App() {
         setToast("Already saved");
       } else if (scenesForEmail.length >= WEB_TRIAL_SAVE_LIMIT) {
         setSavedScenes(scenesForEmail);
-        setToast("This trial user has reached the 3 saved scenes limit.");
+        setToast(TRIAL_LIMIT_MESSAGE);
       } else {
         setSavedScenes([activeScene, ...scenesForEmail]);
         setToast("Saved for practice");
@@ -366,11 +367,11 @@ export default function App() {
         Number(countsForEmail.photo || 0) >= WEB_TRIAL_CAPTURE_LIMIT &&
         Number(countsForEmail.video || 0) >= WEB_TRIAL_CAPTURE_LIMIT
       ) {
-        setToast("This trial user has reached the camera trial limits.");
+        setToast(TRIAL_LIMIT_MESSAGE);
       } else if (pendingIdentityAction === "camera") {
         setToast("Email saved. Tap or hold shutter again.");
       } else if (scenesForEmail.length >= WEB_TRIAL_SAVE_LIMIT) {
-        setToast("This trial user has reached the 3 saved scenes limit.");
+        setToast(TRIAL_LIMIT_MESSAGE);
       } else {
         setToast(`Trial library ready for ${email}`);
       }
@@ -381,11 +382,7 @@ export default function App() {
   function canUseCapture(type) {
     const used = Number(captureCounts[type] || 0);
     if (used >= WEB_TRIAL_CAPTURE_LIMIT) {
-      setToast(
-        type === "photo"
-          ? "This trial user has reached the 3 camera photo limit."
-          : "This trial user has reached the 3 camera video limit.",
-      );
+      setToast(TRIAL_LIMIT_MESSAGE);
       return false;
     }
     return true;
