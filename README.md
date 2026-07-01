@@ -121,6 +121,21 @@ Gemini key server-side, uploads media into Supabase Storage, asks Gemini for
 English-first scene understanding, and writes scene/object rows into Supabase
 Postgres.
 
+## Vercel Preview Deployment
+
+This repo is Vercel-ready for HTTPS mobile-browser testing.
+
+- Build command: `pnpm run build:web`
+- Output directory: `dist/web`
+- API route: `api/[...path].mjs`
+
+Add the same secret values from `.env.local` to Vercel Project Settings ->
+Environment Variables before deploying. Do not commit `.env.local`.
+
+After Vercel creates a preview URL, test `/api/health` first, then open the
+preview URL on iPhone Safari to test camera permission, upload, OTP email,
+video narration, Listen/Repeat, Saved, and temporary video cleanup.
+
 ## AI Cost Monitoring
 
 `model_runs` stores one row per AI provider call. The current backend logs:

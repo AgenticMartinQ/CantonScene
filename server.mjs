@@ -2,6 +2,7 @@ import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { extname, join, normalize } from "node:path";
+import { pathToFileURL } from "node:url";
 import { randomUUID } from "node:crypto";
 
 const root = process.cwd();
@@ -22,7 +23,7 @@ const mimeTypes = {
   ".svg": "image/svg+xml",
 };
 
-const server = createServer(async (req, res) => {
+export async function handleNodeRequest(req, res) {
   try {
     if (req.url === "/api/health") {
       return sendJson(res, {
@@ -66,11 +67,19 @@ const server = createServer(async (req, res) => {
     console.error(error);
     return sendJson(res, { error: error.message || "Server error" }, 500);
   }
-});
+}
 
-server.listen(port, host, () => {
-  console.log(`CantonScene dev server: http://${host}:${port}/app.html`);
-});
+const server = createServer(handleNodeRequest);
+
+if (isDirectRun()) {
+  server.listen(port, host, () => {
+    console.log(`CantonScene dev server: http://${host}:${port}/app.html`);
+  });
+}
+
+function isDirectRun() {
+  return process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+}
 
 async function handleCreateScene(req, res) {
   requireEnv(["SUPABASE_URL", "GEMINI_API_KEY"]);
