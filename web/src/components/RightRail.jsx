@@ -7,9 +7,16 @@ export default function RightRail({
   onDetailPreview,
   onDetailCommit,
   onFavorite,
+  favoriteActive,
+  onSettings,
 }) {
   function commitDetail(event) {
     onDetailCommit(Number(event.currentTarget.value));
+  }
+
+  function adjustDetail(delta) {
+    const nextDetail = Math.max(1, Math.min(5, detailLevel + delta));
+    onDetailPreview(nextDetail);
   }
 
   return (
@@ -19,15 +26,22 @@ export default function RightRail({
         <button className="detail-button" aria-label="Tune detail" onClick={onToggleSlider}>
           ↕
         </button>
-        <button className="favorite-button" aria-label="Save scene" onClick={onFavorite}>
-          ♡
+        <button
+          className={`favorite-button ${favoriteActive ? "active" : ""}`}
+          aria-label={favoriteActive ? "Scene saved" : "Save scene"}
+          style={favoriteActive ? { color: "var(--red)" } : undefined}
+          onClick={onFavorite}
+        >
+          {favoriteActive ? "♥" : "♡"}
         </button>
-        <button className="settings-button" aria-label="Settings">
+        <button className="settings-button" aria-label="Settings" onClick={onSettings}>
           ⚙
         </button>
       </div>
       <div className="detail-slider" aria-label="Detail level">
-        <span>More</span>
+        <button className="detail-step" aria-label="More detail" onClick={() => adjustDetail(1)}>
+          +
+        </button>
         <input
           type="range"
           min="1"
@@ -38,7 +52,9 @@ export default function RightRail({
           onTouchEnd={commitDetail}
           onKeyUp={commitDetail}
         />
-        <span>Less</span>
+        <button className="detail-step" aria-label="Less detail" onClick={() => adjustDetail(-1)}>
+          -
+        </button>
       </div>
     </aside>
   );

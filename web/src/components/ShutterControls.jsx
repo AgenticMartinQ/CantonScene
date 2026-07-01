@@ -5,12 +5,13 @@ export default function ShutterControls({
   onShutterUp,
   onNative,
   onRepeat,
+  nativePlaying,
 }) {
   return (
     <>
       <button className="shutter-action native-action" aria-label="Play native audio" onClick={onNative}>
-        <b>▶</b>
-        <span>Native</span>
+        <b>{nativePlaying ? "||" : "▶"}</b>
+        <span>Listen</span>
       </button>
       <button
         className={`camera-shutter ${recording ? "recording" : ""}`}

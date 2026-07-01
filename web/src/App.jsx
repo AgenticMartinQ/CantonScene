@@ -1,13 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createScene } from "./api.js";
+import { cleanupTemporaryMedia, createScene, getSignedMediaUrl } from "./api.js";
 import { getDailyDemoScene, mockObjects } from "./mockData.js";
 import {
+  clearTemporaryVideoMedia,
   loadSavedScenes,
+  loadTemporaryVideoMedia,
   loadTrialEmail,
   loadTrialUsage,
   persistSavedScenes,
   persistTrialEmail,
   persistTrialUsage,
+  trackTemporaryVideoMedia,
+  untrackTemporaryVideoMedia,
 } from "./storage.js";
 import LanguageTabs from "./components/LanguageTabs.jsx";
 import ObjectCard from "./components/ObjectCard.jsx";
@@ -15,15 +19,25 @@ import RightRail from "./components/RightRail.jsx";
 import ShutterControls from "./components/ShutterControls.jsx";
 import BottomNav from "./components/BottomNav.jsx";
 import SceneSheet from "./components/SceneSheet.jsx";
+import VideoNarrationCard from "./components/VideoNarrationCard.jsx";
 import SavedSheet from "./components/SavedSheet.jsx";
 import TrialIdentitySheet from "./components/TrialIdentitySheet.jsx";
+import CostDashboard from "./components/CostDashboard.jsx";
 
 const WEB_TRIAL_SAVE_LIMIT = 3;
 const WEB_TRIAL_MEDIA_LIMIT = 3;
 const TRIAL_LIMIT_MESSAGE = "Trial user limit is reached. Please register on mobile Apps version to continue.";
+const DEV_UNLIMITED_EMAILS = new Set(["martinqiao.ai@gmail.com"]);
+const PHOTO_AI_MAX_EDGE = 1600;
+const PHOTO_AI_JPEG_QUALITY = 0.82;
+const VIDEO_FRAME_COUNT = 8;
+const VIDEO_FRAME_MAX_EDGE = 768;
+const VIDEO_FRAME_JPEG_QUALITY = 0.72;
 
 export default function App() {
+  const phoneRef = useRef(null);
   const feedRef = useRef(null);
+  const capturedImageRef = useRef(null);
   const uploadRef = useRef(null);
   const streamRef = useRef(null);
   const pendingUploadRef = useRef(null);
@@ -32,34 +46,54 @@ export default function App() {
   const recordChunksRef = useRef([]);
   const recordTimerRef = useRef(null);
   const repeatRecorderRef = useRef(null);
+  const repeatStartedAtRef = useRef(0);
+  const nativeAudioRef = useRef(null);
+  const nativeTargetRef = useRef("");
 
   const [language, setLanguage] = useState("both");
   const [detailLevel, setDetailLevel] = useState(3);
   const [dailyDemoScene, setDailyDemoScene] = useState(() => getDailyDemoScene());
   const [activeScene, setActiveScene] = useState(() => getDailyDemoScene());
-  const [selectedObjectId, setSelectedObjectId] = useState(() => getDailyDemoScene().objects[0]?.id || "fruit");
+  const [selectedObjectId, setSelectedObjectId] = useState(null);
   const [trialEmail, setTrialEmail] = useState(() => loadTrialEmail());
   const [savedScenes, setSavedScenes] = useState(() => loadSavedScenes(loadTrialEmail()));
   const [trialUsage, setTrialUsage] = useState(() => loadTrialUsage(loadTrialEmail()));
-  const [capturedMedia, setCapturedMedia] = useState(() => ({ type: "photo", url: getDailyDemoScene().mediaUrl }));
+  const [capturedMedia, setCapturedMedia] = useState(() => ({ type: "photo", url: getDailyDemoScene().mediaUrl, fit: "cover" }));
   const [processing, setProcessing] = useState(false);
   const [toast, setToast] = useState("");
   const [savedOpen, setSavedOpen] = useState(false);
-  const [sceneSheetOpen, setSceneSheetOpen] = useState(true);
+  const [costOpen, setCostOpen] = useState(false);
+  const [sceneSheetOpen, setSceneSheetOpen] = useState(false);
   const [railCollapsed, setRailCollapsed] = useState(true);
   const [sliderOpen, setSliderOpen] = useState(false);
   const [recordingVideo, setRecordingVideo] = useState(false);
   const [recordProgress, setRecordProgress] = useState(0);
   const [currentMediaBlob, setCurrentMediaBlob] = useState(null);
   const [latestScore, setLatestScore] = useState(null);
+  const [nativePlaying, setNativePlaying] = useState(false);
   const [trialSheetOpen, setTrialSheetOpen] = useState(false);
   const [pendingIdentityAction, setPendingIdentityAction] = useState(null);
+  const [photoFrame, setPhotoFrame] = useState(null);
 
-  const objects = activeScene?.objects?.length ? activeScene.objects : dailyDemoScene.objects;
+  const sourceObjects = activeScene?.isDemo
+    ? dailyDemoScene.objects
+    : activeScene?.isPending
+      ? []
+      : activeScene?.type === "video"
+        ? []
+    : activeScene?.objects?.length
+      ? activeScene.objects
+      : dailyDemoScene.objects;
+  const objects = sourceObjects.slice(0, Math.min(sourceObjects.length, detailLevel));
   const selectedObject = useMemo(
-    () => objects.find((object) => object.id === selectedObjectId) || objects[0],
+    () => objects.find((object) => object.id === selectedObjectId) || null,
     [objects, selectedObjectId],
   );
+  const displayObjects = useMemo(
+    () => objects.map((object) => mapObjectToPhotoFrame(object, capturedMedia, photoFrame)),
+    [objects, capturedMedia, photoFrame],
+  );
+  const activeSceneSaved = Boolean(activeScene?.id && savedScenes.some((scene) => scene.id === activeScene.id));
 
   useEffect(() => {
     startCamera();
@@ -75,8 +109,9 @@ export default function App() {
       setDailyDemoScene(nextDemoScene);
       setActiveScene((scene) => {
         if (scene && !scene.isDemo) return scene;
-        setCapturedMedia({ type: "photo", url: nextDemoScene.mediaUrl });
-        setSelectedObjectId(nextDemoScene.objects[0]?.id || "fruit");
+        setCapturedMedia({ type: "photo", url: nextDemoScene.mediaUrl, fit: "cover" });
+        setSelectedObjectId(null);
+        setSceneSheetOpen(false);
         return nextDemoScene;
       });
     }, 60000);
@@ -92,10 +127,286 @@ export default function App() {
   }, [trialUsage, trialEmail]);
 
   useEffect(() => {
+    const cleanupUnsavedVideos = () => {
+      const savedPaths = new Set(loadSavedScenes(loadTrialEmail()).map((scene) => scene.storagePath).filter(Boolean));
+      const pathsToPurge = loadTemporaryVideoMedia()
+        .map((item) => item.storagePath)
+        .filter((path) => path && !savedPaths.has(path));
+      if (!pathsToPurge.length) return;
+      cleanupTemporaryMedia(pathsToPurge);
+      clearTemporaryVideoMedia();
+    };
+    window.addEventListener("pagehide", cleanupUnsavedVideos);
+    window.addEventListener("beforeunload", cleanupUnsavedVideos);
+    return () => {
+      window.removeEventListener("pagehide", cleanupUnsavedVideos);
+      window.removeEventListener("beforeunload", cleanupUnsavedVideos);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!trialEmail || !savedScenes.some((scene) => shouldRepairMediaUrl(scene))) return;
+    let cancelled = false;
+
+    async function repairSavedMediaUrls() {
+      const repairedScenes = await Promise.all(
+        savedScenes.map(async (scene) => {
+          if (!shouldRepairMediaUrl(scene)) return scene;
+          try {
+            const { mediaUrl } = await getSignedMediaUrl(scene.storagePath);
+            return { ...scene, mediaUrl };
+          } catch (error) {
+            console.warn(error);
+            return scene;
+          }
+        }),
+      );
+      if (!cancelled) setSavedScenes(repairedScenes);
+    }
+
+    repairSavedMediaUrls();
+    return () => {
+      cancelled = true;
+    };
+  }, [savedScenes, trialEmail]);
+
+  useEffect(() => {
     if (!toast) return;
     const timer = window.setTimeout(() => setToast(""), 2200);
     return () => window.clearTimeout(timer);
   }, [toast]);
+
+  useEffect(() => {
+    stopNativePlayback();
+  }, [activeScene?.id, selectedObjectId]);
+
+  useEffect(() => {
+    updatePhotoFrame();
+    window.addEventListener("resize", updatePhotoFrame);
+    return () => window.removeEventListener("resize", updatePhotoFrame);
+  }, [capturedMedia]);
+
+  function updatePhotoFrame() {
+    const img = capturedImageRef.current;
+    const phone = phoneRef.current;
+    if (!img || !phone || capturedMedia?.type !== "photo" || capturedMedia.fit !== "contain" || !img.naturalWidth || !img.naturalHeight) {
+      setPhotoFrame(null);
+      return;
+    }
+
+    const phoneRect = phone.getBoundingClientRect();
+    const containerWidth = phoneRect.width;
+    const containerHeight = phoneRect.height;
+    const scale = Math.min(containerWidth / img.naturalWidth, containerHeight / img.naturalHeight);
+    const renderedWidth = img.naturalWidth * scale;
+    const renderedHeight = img.naturalHeight * scale;
+    setPhotoFrame({
+      left: ((containerWidth - renderedWidth) / 2 / containerWidth) * 100,
+      top: ((containerHeight - renderedHeight) / 2 / containerHeight) * 100,
+      width: (renderedWidth / containerWidth) * 100,
+      height: (renderedHeight / containerHeight) * 100,
+    });
+  }
+
+  function mapObjectToPhotoFrame(object, media, frame) {
+    const mapped =
+      media?.type !== "photo" || media.fit !== "contain" || !frame
+        ? object
+        : {
+            ...object,
+            x: frame.left + (Number(object.x || 0) / 100) * frame.width,
+            y: frame.top + (Number(object.y || 0) / 100) * frame.height,
+          };
+
+    return clampObjectCardPosition(mapped);
+  }
+
+  function clampObjectCardPosition(object) {
+    const y = clamp(Number(object.y || 0), 12, 74);
+    const maxX = y >= 28 && y <= 64 ? 58 : 74;
+    return {
+      ...object,
+      x: clamp(Number(object.x || 0), 24, maxX),
+      y,
+    };
+  }
+
+  function clamp(value, min, max) {
+    return Math.min(max, Math.max(min, value));
+  }
+
+  function clearSceneForProcessing(type, mediaUrl, fileName = "") {
+    setActiveScene({
+      id: `pending-${Date.now()}`,
+      type,
+      mediaUrl,
+      fileName,
+      isPending: true,
+      objects: [],
+      attempts: [],
+    });
+    setSelectedObjectId(null);
+    setSceneSheetOpen(false);
+    setLatestScore(null);
+  }
+
+  function shouldRepairMediaUrl(scene) {
+    return Boolean(scene?.storagePath && (!scene.mediaUrl || scene.mediaUrl.startsWith("blob:")));
+  }
+
+  function profileStepsWithModels(profile, mediaType) {
+    const models = profile.models || {};
+    const modelForStep = {
+      scene_understanding: mediaType === "video" ? models.video_understanding : models.photo_object_detection,
+      gemini_scene_understanding: mediaType === "video" ? models.video_understanding : models.photo_object_detection,
+      cantonese_localization_qa: `${models.cantonese_expression || ""} + ${models.cantonese_qa || ""}`.trim(),
+      openai_tts_audio: `${models.cantonese_tts_scene || ""} / ${models.cantonese_tts_object || ""}`.trim(),
+    };
+    return (profile.steps || []).map((step) => ({
+      ...step,
+      model: modelForStep[step.name] || "",
+    }));
+  }
+
+  function loadImageForResize(file) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const image = new Image();
+      image.onload = () => {
+        URL.revokeObjectURL(url);
+        resolve(image);
+      };
+      image.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error("Photo could not be resized"));
+      };
+      image.src = url;
+    });
+  }
+
+  async function optimizePhotoForAI(file) {
+    const image = await loadImageForResize(file);
+    const sourceWidth = image.naturalWidth || image.width;
+    const sourceHeight = image.naturalHeight || image.height;
+    const scale = Math.min(1, PHOTO_AI_MAX_EDGE / Math.max(sourceWidth, sourceHeight));
+    const width = Math.max(1, Math.round(sourceWidth * scale));
+    const height = Math.max(1, Math.round(sourceHeight * scale));
+
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d");
+    context.drawImage(image, 0, 0, width, height);
+
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", PHOTO_AI_JPEG_QUALITY));
+    if (!blob) return { blob: file, fileName: file.name, resized: false };
+
+    const baseName = file.name.replace(/\.[^.]+$/, "") || "photo";
+    return { blob, fileName: `${baseName}-ai.jpg`, resized: scale !== 1 || file.type !== "image/jpeg" };
+  }
+
+  function waitForMediaEvent(element, eventName, timeoutMs = 8000) {
+    return new Promise((resolve, reject) => {
+      const timeout = window.setTimeout(() => {
+        cleanup();
+        reject(new Error(`${eventName} timed out`));
+      }, timeoutMs);
+      function cleanup() {
+        window.clearTimeout(timeout);
+        element.removeEventListener(eventName, onEvent);
+        element.removeEventListener("error", onError);
+      }
+      function onEvent() {
+        cleanup();
+        resolve();
+      }
+      function onError() {
+        cleanup();
+        reject(new Error("Video could not be read"));
+      }
+      element.addEventListener(eventName, onEvent, { once: true });
+      element.addEventListener("error", onError, { once: true });
+    });
+  }
+
+  async function seekVideo(video, time) {
+    const seeked = waitForMediaEvent(video, "seeked", 5000);
+    video.currentTime = time;
+    await seeked;
+  }
+
+  function canvasToJpegBlob(canvas, quality) {
+    return new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
+  }
+
+  async function sampleVideoFramesForAI(file) {
+    const url = URL.createObjectURL(file);
+    const video = document.createElement("video");
+    video.preload = "metadata";
+    video.muted = true;
+    video.playsInline = true;
+    video.src = url;
+
+    try {
+      await waitForMediaEvent(video, "loadedmetadata", 10000);
+      const duration = Number.isFinite(video.duration) && video.duration > 0 ? Math.min(video.duration, 10) : 10;
+      const frameCount = Math.max(4, Math.min(VIDEO_FRAME_COUNT, Math.ceil(duration)));
+      const sourceWidth = video.videoWidth || 720;
+      const sourceHeight = video.videoHeight || 1280;
+      const scale = Math.min(1, VIDEO_FRAME_MAX_EDGE / Math.max(sourceWidth, sourceHeight));
+      const width = Math.max(1, Math.round(sourceWidth * scale));
+      const height = Math.max(1, Math.round(sourceHeight * scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext("2d");
+      const frames = [];
+
+      for (let index = 0; index < frameCount; index += 1) {
+        const time = Math.min(duration - 0.05, Math.max(0, ((index + 0.5) / frameCount) * duration));
+        await seekVideo(video, time);
+        context.drawImage(video, 0, 0, width, height);
+        const blob = await canvasToJpegBlob(canvas, VIDEO_FRAME_JPEG_QUALITY);
+        if (blob) frames.push({ blob, fileName: `video-frame-${index + 1}.jpg` });
+      }
+
+      return frames;
+    } finally {
+      URL.revokeObjectURL(url);
+      video.removeAttribute("src");
+      video.load();
+    }
+  }
+
+  function isHeicFile(file) {
+    const name = String(file?.name || "").toLowerCase();
+    const type = String(file?.type || "").toLowerCase();
+    return type === "image/heic" || type === "image/heif" || name.endsWith(".heic") || name.endsWith(".heif");
+  }
+
+  async function convertHeicToJpeg(file) {
+    let blob;
+    try {
+      const { heicTo } = await import("heic-to");
+      blob = await heicTo({
+        blob: file,
+        type: "image/jpeg",
+        quality: 0.9,
+      });
+    } catch (primaryError) {
+      console.warn("Primary HEIC conversion failed", primaryError);
+      const { default: heic2any } = await import("heic2any");
+      const converted = await heic2any({
+        blob: file,
+        toType: "image/jpeg",
+        quality: 0.9,
+      });
+      blob = Array.isArray(converted) ? converted[0] : converted;
+    }
+    if (!blob) throw new Error("HEIC conversion failed");
+    const baseName = file.name.replace(/\.[^.]+$/, "") || "iphone-photo";
+    return new File([blob], `${baseName}.jpg`, { type: "image/jpeg" });
+  }
 
   async function startCamera() {
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -116,20 +427,45 @@ export default function App() {
     }
   }
 
-  function handleUpload(event) {
+  async function handleUpload(event) {
     const file = event.target.files?.[0];
     if (!file) return;
-    const url = URL.createObjectURL(file);
     const type = file.type.startsWith("video") ? "video" : "photo";
+    let displayFile = file;
+    let aiMediaBlob = file;
+    let aiFileName = file.name;
+
+    if (type === "photo") {
+      setToast(isHeicFile(file) ? "Converting iPhone photo..." : "Optimizing photo for AI...");
+      try {
+        if (isHeicFile(file)) {
+          displayFile = await convertHeicToJpeg(file);
+        }
+        const optimized = await optimizePhotoForAI(displayFile);
+        aiMediaBlob = optimized.blob;
+        aiFileName = optimized.fileName;
+      } catch (error) {
+        console.warn(error);
+        setToast(isHeicFile(file) ? `HEIC conversion failed: ${error.message || "Try JPG export."}` : "Please upload JPG, PNG, or WebP.");
+        event.target.value = "";
+        return;
+      }
+    }
+
+    const url = URL.createObjectURL(displayFile);
+
     if (!trialEmail) {
-      pendingUploadRef.current = { file, type, url, fileName: file.name };
+      pendingUploadRef.current = { file: aiMediaBlob, type, url, fileName: aiFileName };
       setPendingIdentityAction("upload");
+      setToast("Enter email to analyze this upload.");
       setTrialSheetOpen(true);
       event.target.value = "";
       return;
     }
-    setCapturedMedia({ type, url });
-    createSceneFromMedia(type, file, url, file.name);
+    setCapturedMedia({ type, url, fit: type === "photo" || type === "video" ? "contain" : "cover" });
+    clearSceneForProcessing(type, url, aiFileName);
+    setToast(type === "video" ? "Preparing video..." : "Preparing photo...");
+    createSceneFromMedia(type, aiMediaBlob, url, aiFileName);
     event.target.value = "";
   }
 
@@ -168,7 +504,8 @@ export default function App() {
 
     if (!video.videoWidth) {
       const url = "/assets/hong-kong-camera-bg.png";
-      setCapturedMedia({ type: "photo", url });
+      setCapturedMedia({ type: "photo", url, fit: "cover" });
+      clearSceneForProcessing("photo", url);
       incrementMediaUsage("photo");
       createMockScene("photo", url);
       return;
@@ -177,7 +514,8 @@ export default function App() {
     context.drawImage(video, 0, 0, width, height);
     canvas.toBlob((blob) => {
       const url = URL.createObjectURL(blob);
-      setCapturedMedia({ type: "photo", url });
+      setCapturedMedia({ type: "photo", url, fit: "cover" });
+      clearSceneForProcessing("photo", url, "capture.jpg");
       createSceneFromMedia("photo", blob, url, "capture.jpg");
     }, "image/jpeg", 0.86);
   }
@@ -218,7 +556,8 @@ export default function App() {
   function finishVideoRecording() {
     const blob = new Blob(recordChunksRef.current, { type: "video/webm" });
     const url = URL.createObjectURL(blob);
-    setCapturedMedia({ type: "video", url });
+    setCapturedMedia({ type: "video", url, fit: "contain" });
+    clearSceneForProcessing("video", url, "capture.webm");
     createSceneFromMedia("video", blob, url, "capture.webm");
   }
 
@@ -231,23 +570,80 @@ export default function App() {
   }
 
   async function processSceneFromMedia(type, mediaBlob, mediaUrl, fileName = "") {
-    setCurrentMediaBlob({ type, mediaBlob, mediaUrl, fileName });
+    let aiMediaBlob = mediaBlob;
+    let aiFileName = fileName;
+    let videoFrames = [];
+
+    if (type === "photo" && !fileName.endsWith("-ai.jpg")) {
+      try {
+        const optimized = await optimizePhotoForAI(mediaBlob);
+        aiMediaBlob = optimized.blob;
+        aiFileName = optimized.fileName;
+      } catch (error) {
+        console.warn(error);
+      }
+    }
+
+    if (type === "video") {
+      try {
+        setToast("Sampling video key frames...");
+        videoFrames = await sampleVideoFramesForAI(mediaBlob);
+      } catch (error) {
+        console.warn(error);
+        setToast("Video frames could not be sampled. Trying analysis anyway...");
+      }
+    }
+
+    setCurrentMediaBlob({ type, mediaBlob: aiMediaBlob, mediaUrl, fileName: aiFileName });
     try {
       setProcessing(true);
-      const scene = await createScene({ type, mediaBlob, fileName, detailLevel });
-      const nextScene = { ...scene, mediaUrl, fileName, attempts: [] };
+      const scene = await createScene({ type, mediaBlob: aiMediaBlob, fileName: aiFileName, detailLevel, videoFrames });
+      if (scene.processingProfile) {
+        console.table(profileStepsWithModels(scene.processingProfile, type));
+        console.info("CantonScene processing profile", scene.processingProfile);
+      }
+      const nextScene = { ...scene, mediaUrl: scene.mediaUrl || mediaUrl, fileName, previewUrl: mediaUrl, attempts: [] };
+      setCapturedMedia({ type, url: mediaUrl, fit: type === "photo" || type === "video" ? "contain" : "cover" });
+      setCurrentMediaBlob({ type, mediaBlob: aiMediaBlob, mediaUrl, fileName: aiFileName });
+      if (type === "video") trackTemporaryVideoMedia(nextScene);
       setActiveScene(nextScene);
-      setSelectedObjectId(nextScene.objects[0]?.id);
-      setSceneSheetOpen(true);
+      setSelectedObjectId(null);
+      setSceneSheetOpen(false);
       setLatestScore(null);
       setToast(type === "video" ? "Video scene ready" : "Photo objects ready");
     } catch (error) {
       console.warn(error);
-      setToast("Backend unavailable. Using demo scene.");
-      createMockScene(type, mediaUrl, fileName);
+      if (type === "video") {
+        setToast("Video analysis failed. Please try again.");
+        createFailedVideoScene(mediaUrl, fileName);
+      } else {
+        setToast("Backend unavailable. Using demo scene.");
+        createMockScene(type, mediaUrl, fileName);
+      }
     } finally {
       setProcessing(false);
     }
+  }
+
+  function createFailedVideoScene(mediaUrl, fileName = "") {
+    const scene = {
+      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+      type: "video",
+      mediaUrl,
+      fileName,
+      createdAt: new Date().toISOString(),
+      englishSummary: "Video analysis failed. Please try uploading the clip again.",
+      cantoneseSummary: "影片分析失敗，請再上載一次。",
+      jyutpingSummary: "jing2 pin2 fan1 sik1 sat1 baai6, cing2 zoi3 soeng5 zoi3 jat1 ci3.",
+      objects: [],
+      attempts: [],
+      analysisStatus: "failed",
+    };
+    setCapturedMedia({ type: "video", url: mediaUrl, fit: "contain" });
+    setActiveScene(scene);
+    setSelectedObjectId(null);
+    setSceneSheetOpen(false);
+    setLatestScore(null);
   }
 
   function createMockScene(type, mediaUrl, fileName = "") {
@@ -264,14 +660,19 @@ export default function App() {
       objects: demoObjects,
       attempts: [],
     };
+    setCapturedMedia({ type, url: mediaUrl, fit: type === "photo" && fileName ? "contain" : "cover" });
     setActiveScene(scene);
-    setSelectedObjectId(scene.objects[0]?.id);
-    setSceneSheetOpen(true);
+    setSelectedObjectId(null);
+    setSceneSheetOpen(false);
     setLatestScore(null);
   }
 
   async function regenerateWithDetail(nextDetail) {
     setDetailLevel(nextDetail);
+    if (activeScene?.objects?.length >= nextDetail) {
+      setSliderOpen(false);
+      return;
+    }
     if (!currentMediaBlob) {
       setActiveScene((scene) =>
         scene
@@ -303,14 +704,141 @@ export default function App() {
     setSliderOpen(false);
   }
 
-  function playNative() {
-    if (!selectedObject) return;
+  function loadSpeechVoices() {
+    return new Promise((resolve) => {
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length) {
+        resolve(voices);
+        return;
+      }
+      window.speechSynthesis.onvoiceschanged = () => resolve(window.speechSynthesis.getVoices());
+      window.setTimeout(() => resolve(window.speechSynthesis.getVoices()), 900);
+    });
+  }
+
+  function findCantoneseVoice(voices) {
+    return voices.find((voice) => {
+      const lang = voice.lang.toLowerCase();
+      const name = voice.name.toLowerCase();
+      return lang === "zh-hk" || lang.includes("yue") || name.includes("cantonese") || name.includes("hong kong");
+    });
+  }
+
+  function stopNativePlayback() {
+    if (nativeAudioRef.current) {
+      nativeAudioRef.current.pause();
+      nativeAudioRef.current = null;
+    }
+    window.speechSynthesis?.cancel();
+    nativeTargetRef.current = "";
+    setNativePlaying(false);
+  }
+
+  async function playNative() {
+    const listenText = activeScene?.type === "video"
+      ? activeScene?.cantoneseSummary
+      : selectedObject?.cantonese || activeScene?.cantoneseSummary;
+    const audioUrl = activeScene?.type === "video"
+      ? activeScene?.cantoneseAudioUrl
+      : selectedObject?.audioUrl || activeScene?.cantoneseAudioUrl;
+    const targetKey = audioUrl ? `audio:${audioUrl}` : `speech:${listenText || ""}`;
+
+    if (!listenText && !audioUrl) {
+      setToast(activeScene?.type === "video" ? "Narration audio is not ready yet." : "Choose an object first.");
+      return;
+    }
+
+    if (audioUrl) {
+      window.speechSynthesis?.cancel();
+      const currentAudio = nativeAudioRef.current;
+      if (currentAudio && nativeTargetRef.current === targetKey) {
+        if (currentAudio.paused) {
+          try {
+            await currentAudio.play();
+            setNativePlaying(true);
+          } catch {
+            setToast("Tap again to play native audio.");
+          }
+        } else {
+          currentAudio.pause();
+          setNativePlaying(false);
+        }
+        return;
+      }
+      if (currentAudio) {
+        currentAudio.pause();
+      }
+      const audio = new Audio(audioUrl);
+      nativeAudioRef.current = audio;
+      nativeTargetRef.current = targetKey;
+      audio.addEventListener("ended", () => setNativePlaying(false), { once: true });
+      audio.addEventListener("pause", () => {
+        if (!audio.ended) setNativePlaying(false);
+      });
+      audio.addEventListener("play", () => setNativePlaying(true));
+      try {
+        await audio.play();
+      } catch {
+        setNativePlaying(false);
+        setToast("Tap again to play native audio.");
+      }
+      return;
+    }
+
+    if (nativeTargetRef.current === targetKey && window.speechSynthesis?.speaking) {
+      if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+        setNativePlaying(true);
+      } else {
+        window.speechSynthesis.pause();
+        setNativePlaying(false);
+      }
+      return;
+    }
+
+    if (nativeAudioRef.current) {
+        nativeAudioRef.current.pause();
+        nativeAudioRef.current = null;
+    }
+
     if (!window.speechSynthesis) {
       setToast("Native audio will use Cantonese TTS backend later.");
       return;
     }
+    const voices = await loadSpeechVoices();
+    const cantoneseVoice = findCantoneseVoice(voices);
+    if (!cantoneseVoice) {
+      setToast("Cantonese voice is not available in this browser.");
+      return;
+    }
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(selectedObject.cantonese);
+    const utterance = new SpeechSynthesisUtterance(listenText);
+    nativeTargetRef.current = targetKey;
+    utterance.voice = cantoneseVoice;
+    utterance.lang = "zh-HK";
+    utterance.rate = 0.82;
+    utterance.onend = () => setNativePlaying(false);
+    utterance.onerror = () => setNativePlaying(false);
+    window.speechSynthesis.speak(utterance);
+    setNativePlaying(true);
+  }
+
+  async function playDailyFocusName() {
+    const text = dailyDemoScene.focusCantonese || dailyDemoScene.focus;
+    if (!text) return;
+    if (!window.speechSynthesis) {
+      setToast("Cantonese voice is not available in this browser.");
+      return;
+    }
+    const voices = await loadSpeechVoices();
+    const cantoneseVoice = findCantoneseVoice(voices);
+    if (!cantoneseVoice) {
+      setToast("Cantonese voice is not available in this browser.");
+      return;
+    }
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.voice = cantoneseVoice;
     utterance.lang = "zh-HK";
     utterance.rate = 0.82;
     window.speechSynthesis.speak(utterance);
@@ -319,6 +847,14 @@ export default function App() {
   async function recordRepeat() {
     if (repeatRecorderRef.current?.state === "recording") {
       repeatRecorderRef.current.stop();
+      return;
+    }
+    if (activeScene?.type === "video" && !activeScene?.cantoneseSummary) {
+      setToast("Narration is not ready yet.");
+      return;
+    }
+    if (activeScene?.type !== "video" && !selectedObject) {
+      setToast("Choose an object first.");
       return;
     }
     if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
@@ -333,35 +869,95 @@ export default function App() {
       recorder.addEventListener("dataavailable", (event) => {
         if (event.data.size) chunks.push(event.data);
       });
-      recorder.addEventListener("stop", () => {
+      recorder.addEventListener("stop", async () => {
         stream.getTracks().forEach((track) => track.stop());
-        scoreRepeatAttempt();
+        const recordingMs = Date.now() - repeatStartedAtRef.current;
+        const audioBlob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
+        await scoreRepeatAttempt({ recordingMs, audioBlob });
       });
+      repeatStartedAtRef.current = Date.now();
       recorder.start();
-      setToast("Recording repeat attempt...");
+      setToast(activeScene?.type === "video" ? "Reading narration..." : "Recording repeat attempt...");
       window.setTimeout(() => {
         if (repeatRecorderRef.current?.state === "recording") repeatRecorderRef.current.stop();
-      }, 3600);
+      }, activeScene?.type === "video" ? 9000 : 3600);
     } catch {
       setToast("Microphone permission needed.");
     }
   }
 
-  function scoreRepeatAttempt() {
+  async function scoreRepeatAttempt({ recordingMs = 0, audioBlob = null } = {}) {
+    if (activeScene?.type === "video") {
+      await scoreVideoNarrationAttempt({ recordingMs, audioBlob });
+      return;
+    }
     if (!selectedObject) return;
-    const base = 74 + Math.round(Math.random() * 18);
+    const scoring = repeatScoreBreakdown(selectedObject.cantonese || selectedObject.english, recordingMs, { strictCompletion: false });
     const attempt = {
       id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
       targetId: selectedObject.id,
-      score: base,
-      pronunciation: Math.max(60, base - 3),
-      tone: Math.max(58, base - 7),
-      fluency: Math.min(98, base + 2),
+      targetType: "object",
+      score: scoring.score,
+      pronunciation: scoring.pronunciation,
+      tone: scoring.tone,
+      fluency: scoring.fluency,
+      completion: scoring.completion,
       createdAt: new Date().toISOString(),
     };
     setLatestScore(attempt);
     setActiveScene((scene) => (scene ? { ...scene, attempts: [...scene.attempts, attempt] } : scene));
     setToast("Practice score added");
+  }
+
+  async function scoreVideoNarrationAttempt({ recordingMs = 0, audioBlob = null } = {}) {
+    const targetText = activeScene?.cantoneseSummary || "";
+    if (!targetText) return;
+    const scoring = repeatScoreBreakdown(targetText, recordingMs, { strictCompletion: true });
+    const attempt = {
+      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+      targetId: activeScene.id,
+      targetType: "video_narration",
+      reference: activeScene.cantoneseAudioUrl ? "generated_tts_narration" : "cantonese_text",
+      recordingMs,
+      recordingBytes: audioBlob?.size || 0,
+      score: scoring.score,
+      pronunciation: scoring.pronunciation,
+      tone: scoring.tone,
+      fluency: scoring.fluency,
+      completion: scoring.completion,
+      createdAt: new Date().toISOString(),
+    };
+    setLatestScore(attempt);
+    setActiveScene((scene) => (scene ? { ...scene, attempts: [...(scene.attempts || []), attempt] } : scene));
+    setToast("Narration repeat score added");
+  }
+
+  function repeatScoreBreakdown(targetText = "", recordingMs = 0, options = {}) {
+    const length = Array.from(String(targetText || "").replace(/\s+/g, "")).length;
+    const expectedMs = Math.max(options.strictCompletion ? 3600 : 1400, length * (options.strictCompletion ? 360 : 240));
+    const completionRatio = recordingMs > 0 ? Math.min(1, recordingMs / expectedMs) : 0;
+    const completion = Math.round(Math.max(0, Math.min(1, completionRatio)) * 100);
+    const timingCloseness = recordingMs > 0 ? Math.min(recordingMs, expectedMs) / Math.max(recordingMs, expectedMs) : 0.55;
+    const variance = Math.round(Math.random() * 5);
+    let pronunciation = Math.round(64 + timingCloseness * 27 + variance);
+    let tone = Math.round(60 + timingCloseness * 26 + variance);
+    let fluency = Math.round(62 + timingCloseness * 30 + variance);
+
+    if (options.strictCompletion && completion < 70) {
+      pronunciation = Math.min(pronunciation, Math.max(42, completion + 18));
+      tone = Math.min(tone, Math.max(40, completion + 12));
+      fluency = Math.min(fluency, Math.max(38, completion + 8));
+    }
+
+    const score = Math.round(pronunciation * 0.24 + tone * 0.18 + fluency * 0.23 + completion * 0.35);
+    const completionCap = options.strictCompletion && completion < 60 ? completion + 16 : 100;
+    return {
+      score: Math.max(35, Math.min(96, Math.min(score, completionCap))),
+      pronunciation: Math.max(35, Math.min(98, pronunciation)),
+      tone: Math.max(35, Math.min(98, tone)),
+      fluency: Math.max(35, Math.min(98, fluency)),
+      completion,
+    };
   }
 
   function saveActiveScene() {
@@ -375,16 +971,19 @@ export default function App() {
       return;
     }
     if (savedScenes.some((scene) => scene.id === activeScene.id)) {
-      setToast("Already saved");
+      if (activeScene.type === "video") trackTemporaryVideoMedia(activeScene);
+      setSavedScenes((scenes) => scenes.filter((scene) => scene.id !== activeScene.id));
+      setToast("Removed from Saved");
       return;
     }
-    if (savedScenes.length >= WEB_TRIAL_SAVE_LIMIT) {
+    if (!isDeveloperUnlimited() && savedScenes.length >= WEB_TRIAL_SAVE_LIMIT) {
       setToast(TRIAL_LIMIT_MESSAGE);
       return;
     }
     setSavedScenes((scenes) => {
       return [activeScene, ...scenes];
     });
+    untrackTemporaryVideoMedia(activeScene);
     setToast("Saved for practice");
   }
 
@@ -397,12 +996,14 @@ export default function App() {
     setTrialSheetOpen(false);
     if (pendingIdentityAction === "favorite" && activeScene) {
       if (scenesForEmail.some((scene) => scene.id === activeScene.id)) {
-        setSavedScenes(scenesForEmail);
-        setToast("Already saved");
-      } else if (scenesForEmail.length >= WEB_TRIAL_SAVE_LIMIT) {
+        if (activeScene.type === "video") trackTemporaryVideoMedia(activeScene);
+        setSavedScenes(scenesForEmail.filter((scene) => scene.id !== activeScene.id));
+        setToast("Removed from Saved");
+      } else if (!isDeveloperUnlimited(email) && scenesForEmail.length >= WEB_TRIAL_SAVE_LIMIT) {
         setSavedScenes(scenesForEmail);
         setToast(TRIAL_LIMIT_MESSAGE);
       } else {
+        untrackTemporaryVideoMedia(activeScene);
         setSavedScenes([activeScene, ...scenesForEmail]);
         setToast("Saved for practice");
       }
@@ -417,12 +1018,14 @@ export default function App() {
           setToast(TRIAL_LIMIT_MESSAGE);
         } else {
           pendingUploadRef.current = null;
-          setCapturedMedia({ type: pending.type, url: pending.url });
+          setCapturedMedia({ type: pending.type, url: pending.url, fit: pending.type === "photo" || pending.type === "video" ? "contain" : "cover" });
+          clearSceneForProcessing(pending.type, pending.url, pending.fileName);
+          setToast(pending.type === "video" ? "Preparing video..." : "Preparing photo...");
           createSceneFromMedia(pending.type, pending.file, pending.url, pending.fileName, { usageOverride: usageForEmail });
         }
       } else if (pendingIdentityAction === "camera") {
         setToast("Email saved. Tap or hold shutter again.");
-      } else if (scenesForEmail.length >= WEB_TRIAL_SAVE_LIMIT) {
+      } else if (!isDeveloperUnlimited(email) && scenesForEmail.length >= WEB_TRIAL_SAVE_LIMIT) {
         setToast(TRIAL_LIMIT_MESSAGE);
       } else {
         setToast(`Trial library ready for ${email}`);
@@ -432,8 +1035,13 @@ export default function App() {
   }
 
   function isMediaLimitReached(type, usageOverride = null) {
+    if (isDeveloperUnlimited()) return false;
     const usage = usageOverride || trialUsage;
     return Number(usage[type] || 0) >= WEB_TRIAL_MEDIA_LIMIT;
+  }
+
+  function isDeveloperUnlimited(email = trialEmail) {
+    return DEV_UNLIMITED_EMAILS.has(String(email || "").trim().toLowerCase());
   }
 
   function canUseMediaGeneration(type, usageOverride = null) {
@@ -461,19 +1069,60 @@ export default function App() {
 
   function restoreScene(scene) {
     setActiveScene(scene);
-    setCapturedMedia({ type: scene.type, url: scene.mediaUrl });
-    setSelectedObjectId(scene.objects[0]?.id);
+    const displayUrl = scene.previewUrl?.startsWith("blob:") ? scene.previewUrl : scene.mediaUrl;
+    setCapturedMedia({ type: scene.type, url: displayUrl, fit: scene.type === "photo" || scene.type === "video" ? "contain" : "cover" });
+    setSelectedObjectId(null);
     setSavedOpen(false);
-    setSceneSheetOpen(true);
+    setSceneSheetOpen(false);
     setLatestScore(null);
+  }
+
+  function restoreDailyDemoScene() {
+    setActiveScene(dailyDemoScene);
+    setCapturedMedia({ type: "photo", url: dailyDemoScene.mediaUrl, fit: "cover" });
+    setSelectedObjectId(null);
+    setSceneSheetOpen(false);
+    setSavedOpen(false);
+    setCostOpen(false);
+    setSliderOpen(false);
+    if (!processing) setCurrentMediaBlob(null);
+    setLatestScore(null);
+    setToast(processing ? "Today’s demo scene. Upload is still processing." : "Today’s demo scene");
+  }
+
+  function deleteSavedScene(sceneId) {
+    const scene = savedScenes.find((item) => item.id === sceneId);
+    if (scene?.type === "video") trackTemporaryVideoMedia(scene);
+    setSavedScenes((scenes) => scenes.filter((scene) => scene.id !== sceneId));
+    setToast("Deleted from Saved");
   }
 
   return (
     <main className="app-shell">
-      <section className="phone-app" aria-label="CantonScene MVP">
+      <section className={`phone-app ${capturedMedia?.type === "video" ? "video-mode" : ""}`} aria-label="CantonScene MVP" ref={phoneRef}>
         <video className="camera-feed" ref={feedRef} playsInline muted />
-        {capturedMedia?.type === "photo" ? <img className="captured-media visible" src={capturedMedia.url} alt="" /> : null}
-        {capturedMedia?.type === "video" ? <video className="captured-video visible" src={capturedMedia.url} playsInline controls /> : null}
+        {capturedMedia?.type === "photo" && capturedMedia.fit === "contain" ? <img className="captured-media-backdrop" src={capturedMedia.url} alt="" /> : null}
+        {capturedMedia?.type === "video" && capturedMedia.fit === "contain" ? (
+          <video className="captured-media-backdrop" src={capturedMedia.url} muted playsInline preload="metadata" />
+        ) : null}
+        {capturedMedia?.type === "photo" ? (
+          <img
+            className={`captured-media visible ${capturedMedia.fit === "contain" ? "fit-contain" : "fit-cover"}`}
+            src={capturedMedia.url}
+            alt=""
+            ref={capturedImageRef}
+            onLoad={updatePhotoFrame}
+          />
+        ) : null}
+        {capturedMedia?.type === "video" ? (
+          <video
+            className={`captured-video visible ${capturedMedia.fit === "contain" ? "fit-contain" : "fit-cover"}`}
+            src={capturedMedia.url}
+            playsInline
+            controls
+            preload="metadata"
+          />
+        ) : null}
         <div className="camera-fallback" />
         <div className="camera-scrim" />
 
@@ -484,19 +1133,24 @@ export default function App() {
         </header>
 
         <section className="top-card">
-          <div>
-            <small>Today’s focus</small>
-            <strong>{activeScene?.focus || dailyDemoScene.focus}</strong>
+          <div className="top-card-copy">
+            <small>Scene of Today Selected For You to Learn</small>
+            <strong>{dailyDemoScene.focusCantonese ? `${dailyDemoScene.focusCantonese} ${dailyDemoScene.focus}` : dailyDemoScene.focus}</strong>
           </div>
-          <button className="profile-button" aria-label="Profile">
-            ◐
-          </button>
+          <div className="top-card-actions">
+            <button className="focus-audio-button" aria-label="Play today’s scene name" onClick={playDailyFocusName}>
+              ▶
+            </button>
+            <button className="profile-button" aria-label="Back to today’s demo scene" onClick={restoreDailyDemoScene}>
+              ⌂
+            </button>
+          </div>
         </section>
 
         <LanguageTabs language={language} onChange={setLanguage} />
 
         <section className="object-layer" aria-live="polite">
-          {objects.map((object) => (
+          {displayObjects.map((object) => (
             <ObjectCard
               key={object.id}
               object={object}
@@ -511,6 +1165,8 @@ export default function App() {
           ))}
         </section>
 
+        <VideoNarrationCard scene={activeScene} score={latestScore} />
+
         <RightRail
           collapsed={railCollapsed}
           showSlider={sliderOpen}
@@ -523,6 +1179,11 @@ export default function App() {
           onDetailPreview={setDetailLevel}
           onDetailCommit={regenerateWithDetail}
           onFavorite={saveActiveScene}
+          favoriteActive={activeSceneSaved}
+          onSettings={() => {
+            setSavedOpen(false);
+            setCostOpen(true);
+          }}
         />
 
         <ShutterControls
@@ -532,13 +1193,20 @@ export default function App() {
           onShutterUp={endShutterPress}
           onNative={playNative}
           onRepeat={recordRepeat}
+          nativePlaying={nativePlaying}
         />
 
         <BottomNav
           active={savedOpen ? "saved" : "camera"}
-          onUpload={() => uploadRef.current.click()}
+          onUpload={() => {
+            setSavedOpen(false);
+            setCostOpen(false);
+            setToast("Choose a photo or video.");
+            uploadRef.current?.click();
+          }}
           onCamera={() => {
             setSavedOpen(false);
+            setCostOpen(false);
             setToast("Camera mode");
           }}
           onSaved={() => {
@@ -547,6 +1215,7 @@ export default function App() {
               setTrialSheetOpen(true);
               return;
             }
+            setCostOpen(false);
             setSavedOpen(true);
           }}
         />
@@ -557,7 +1226,11 @@ export default function App() {
           <section className="processing-panel">
             <div className="spinner" />
             <strong>Reading the scene...</strong>
-            <span>Detecting objects and preparing English-first learning cards.</span>
+            <span>
+              {activeScene?.type === "video"
+                ? "Analyzing video contents and generating narrations ..."
+                : "Detecting objects and preparing English-first learning cards."}
+            </span>
           </section>
         ) : null}
 
@@ -570,8 +1243,11 @@ export default function App() {
             saveLimit={WEB_TRIAL_SAVE_LIMIT}
             onClose={() => setSavedOpen(false)}
             onRestore={restoreScene}
+            onDelete={deleteSavedScene}
           />
         ) : null}
+
+        {costOpen ? <CostDashboard onClose={() => setCostOpen(false)} /> : null}
 
         {trialSheetOpen ? (
           <TrialIdentitySheet

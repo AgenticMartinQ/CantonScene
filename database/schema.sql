@@ -141,9 +141,34 @@ create table if not exists model_runs (
   job_id uuid references ai_processing_jobs(id) on delete cascade,
   provider text not null,
   model_name text not null,
+  task_type text,
+  status text not null default 'complete' check (status in ('complete', 'failed')),
   input_json jsonb,
   output_json jsonb,
+  usage_json jsonb,
+  input_tokens int,
+  output_tokens int,
+  total_tokens int,
+  media_bytes bigint,
+  input_cost_usd numeric,
+  output_cost_usd numeric,
   latency_ms int,
   cost_estimate numeric,
+  error_message text,
   created_at timestamptz default now()
 );
+
+alter table model_runs add column if not exists task_type text;
+alter table model_runs add column if not exists status text not null default 'complete';
+alter table model_runs add column if not exists usage_json jsonb;
+alter table model_runs add column if not exists input_tokens int;
+alter table model_runs add column if not exists output_tokens int;
+alter table model_runs add column if not exists total_tokens int;
+alter table model_runs add column if not exists media_bytes bigint;
+alter table model_runs add column if not exists input_cost_usd numeric;
+alter table model_runs add column if not exists output_cost_usd numeric;
+alter table model_runs add column if not exists error_message text;
+
+create index if not exists model_runs_created_at_idx on model_runs (created_at desc);
+create index if not exists model_runs_task_type_idx on model_runs (task_type);
+create index if not exists model_runs_provider_model_idx on model_runs (provider, model_name);

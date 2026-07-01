@@ -39,7 +39,10 @@ Current features:
 - Web trial media limit after email: 3 photo object-detection generations and 3 video narration generations per email, including shutter and Upload.
 - Detail and narration conciseness adjustments regenerate the same scene without consuming another trial use.
 - Trial saved scene library: 3 saved scene detection results per email identity.
+- Native playback uses a browser Cantonese voice only when available; otherwise it avoids Mandarin fallback and shows a notice.
 - Mock pronunciation scoring.
+- AI cost logging for Gemini/OpenAI model calls, with a small in-app dashboard under the right-rail Settings button.
+- OpenAI Cantonese TTS generation for processed scene narrations and object cards, with MP3s stored in Supabase Storage.
 
 ## Design Files
 
@@ -90,6 +93,11 @@ SUPABASE_PUBLISHABLE_KEY
 SUPABASE_SECRET_KEY
 GEMINI_API_KEY
 GEMINI_MODEL
+OPENAI_API_KEY
+OPENAI_TEXT_MODEL
+OPENAI_TTS_MODEL
+OPENAI_TTS_VOICE
+AI_COST_PRICE_TABLE_JSON
 ```
 
 ## Real Backend Preview
@@ -112,3 +120,21 @@ The React dev server proxies `/api/*` to the local Node backend at
 Gemini key server-side, uploads media into Supabase Storage, asks Gemini for
 English-first scene understanding, and writes scene/object rows into Supabase
 Postgres.
+
+## AI Cost Monitoring
+
+`model_runs` stores one row per AI provider call. The current backend logs:
+
+- `photo_object_detection` / `video_understanding` from Gemini.
+- `cantonese_expression` from OpenAI.
+- `cantonese_qa` from OpenAI.
+- `cantonese_tts_scene` and `cantonese_tts_object` from OpenAI TTS.
+
+Each row captures provider, model, task type, status, latency, token usage when
+returned by the provider, media bytes, and estimated USD cost. The in-app
+Settings button opens a dashboard backed by `/api/costs`.
+
+The built-in starter estimate assumes `gpt-5.4-mini` costs `$1 / 1M` input
+tokens and `$8 / 1M` output tokens, and `gpt-4o-mini-tts` costs `$0.60 / 1M`
+characters. Keep this updated through `AI_COST_PRICE_TABLE_JSON` if dashboard
+pricing changes.

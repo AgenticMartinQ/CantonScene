@@ -1,0 +1,168 @@
+{
+  "generatedAt": "2026-06-30T04:05:41.371Z",
+  "mode": "pilot",
+  "results": [
+    {
+      "query": "Bank of China Tower Hong Kong",
+      "best": null,
+      "candidates": []
+    },
+    {
+      "query": "Victoria Peak Hong Kong",
+      "best": null,
+      "candidates": []
+    },
+    {
+      "query": "Tsim Sha Tsui Promenade",
+      "best": {
+        "title": "File:The Avenue of the Stars And the Tsim Sha Tsui Promenade... (19424936394).jpg",
+        "pageUrl": "https://commons.wikimedia.org/wiki/File:The%20Avenue%20of%20the%20Stars%20And%20the%20Tsim%20Sha%20Tsui%20Promenade...%20(19424936394)",
+        "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/f/fc/The_Avenue_of_the_Stars_And_the_Tsim_Sha_Tsui_Promenade..._%2819424936394%29.jpg",
+        "thumbUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/fc/The_Avenue_of_the_Stars_And_the_Tsim_Sha_Tsui_Promenade..._%2819424936394%29.jpg/1280px-The_Avenue_of_the_Stars_And_the_Tsim_Sha_Tsui_Promenade..._%2819424936394%29.jpg",
+        "mime": "image/jpeg",
+        "license": "cc0",
+        "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+        "author": "Bernard Spragg. NZ from Christchurch, New Zealand",
+        "credit": "The Avenue of the Stars And the Tsim Sha Tsui Promenade..."
+      },
+      "candidates": [
+        {
+          "title": "File:The Avenue of the Stars And the Tsim Sha Tsui Promenade... (19424936394).jpg",
+          "pageUrl": "https://commons.wikimedia.org/wiki/File:The%20Avenue%20of%20the%20Stars%20And%20the%20Tsim%20Sha%20Tsui%20Promenade...%20(19424936394)",
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/f/fc/The_Avenue_of_the_Stars_And_the_Tsim_Sha_Tsui_Promenade..._%2819424936394%29.jpg",
+          "thumbUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/fc/The_Avenue_of_the_Stars_And_the_Tsim_Sha_Tsui_Promenade..._%2819424936394%29.jpg/1280px-The_Avenue_of_the_Stars_And_the_Tsim_Sha_Tsui_Promenade..._%2819424936394%29.jpg",
+          "mime": "image/jpeg",
+          "license": "cc0",
+          "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+          "author": "Bernard Spragg. NZ from Christchurch, New Zealand",
+          "credit": "The Avenue of the Stars And the Tsim Sha Tsui Promenade..."
+        }
+      ]
+    },
+    {
+      "query": "Mong Kok MTR station",
+      "best": {
+        "title": "File:HK YTM MK 旺角站 Mong Kok MTR Station D exit and entrance passageway Augsut 2024 R12S 01.jpg",
+        "pageUrl": "https://commons.wikimedia.org/wiki/File:HK%20YTM%20MK%20%E6%97%BA%E8%A7%92%E7%AB%99%20Mong%20Kok%20MTR%20Station%20D%20exit%20and%20entrance%20passageway%20Augsut%202024%20R12S%2001",
+        "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/b/b9/HK_YTM_MK_%E6%97%BA%E8%A7%92%E7%AB%99_Mong_Kok_MTR_Station_D_exit_and_entrance_passageway_Augsut_2024_R12S_01.jpg",
+        "thumbUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b9/HK_YTM_MK_%E6%97%BA%E8%A7%92%E7%AB%99_Mong_Kok_MTR_Station_D_exit_and_entrance_passageway_Augsut_2024_R12S_01.jpg/1280px-HK_YTM_MK_%E6%97%BA%E8%A7%92%E7%AB%99_Mong_Kok_MTR_Station_D_exit_and_entrance_passageway_Augsut_2024_R12S_01.jpg",
+        "mime": "image/jpeg",
+        "license": "cc0",
+        "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+        "author": "MONLKDWOEA oilsa",
+        "credit": "Own work"
+      },
+      "candidates": [
+        {
+          "title": "File:HK YTM MK 旺角站 Mong Kok MTR Station D exit and entrance passageway Augsut 2024 R12S 01.jpg",
+          "pageUrl": "https://commons.wikimedia.org/wiki/File:HK%20YTM%20MK%20%E6%97%BA%E8%A7%92%E7%AB%99%20Mong%20Kok%20MTR%20Station%20D%20exit%20and%20entrance%20passageway%20Augsut%202024%20R12S%2001",
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/b/b9/HK_YTM_MK_%E6%97%BA%E8%A7%92%E7%AB%99_Mong_Kok_MTR_Station_D_exit_and_entrance_passageway_Augsut_2024_R12S_01.jpg",
+          "thumbUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b9/HK_YTM_MK_%E6%97%BA%E8%A7%92%E7%AB%99_Mong_Kok_MTR_Station_D_exit_and_entrance_passageway_Augsut_2024_R12S_01.jpg/1280px-HK_YTM_MK_%E6%97%BA%E8%A7%92%E7%AB%99_Mong_Kok_MTR_Station_D_exit_and_entrance_passageway_Augsut_2024_R12S_01.jpg",
+          "mime": "image/jpeg",
+          "license": "cc0",
+          "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+          "author": "MONLKDWOEA oilsa",
+          "credit": "Own work"
+        },
+        {
+          "title": "File:HK YTM MK 旺角站 Mong Kok MTR Station exit and entrance passageway Augsut 2024 R12S 02.jpg",
+          "pageUrl": "https://commons.wikimedia.org/wiki/File:HK%20YTM%20MK%20%E6%97%BA%E8%A7%92%E7%AB%99%20Mong%20Kok%20MTR%20Station%20exit%20and%20entrance%20passageway%20Augsut%202024%20R12S%2002",
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/e/e7/HK_YTM_MK_%E6%97%BA%E8%A7%92%E7%AB%99_Mong_Kok_MTR_Station_exit_and_entrance_passageway_Augsut_2024_R12S_02.jpg",
+          "thumbUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e7/HK_YTM_MK_%E6%97%BA%E8%A7%92%E7%AB%99_Mong_Kok_MTR_Station_exit_and_entrance_passageway_Augsut_2024_R12S_02.jpg/1280px-HK_YTM_MK_%E6%97%BA%E8%A7%92%E7%AB%99_Mong_Kok_MTR_Station_exit_and_entrance_passageway_Augsut_2024_R12S_02.jpg",
+          "mime": "image/jpeg",
+          "license": "cc0",
+          "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+          "author": "MONLKDWOEA oilsa",
+          "credit": "Own work"
+        },
+        {
+          "title": "File:HK YTM MK 旺角站 Mong Kok MTR Station exit and entrance Augsut 2024 R12S.jpg",
+          "pageUrl": "https://commons.wikimedia.org/wiki/File:HK%20YTM%20MK%20%E6%97%BA%E8%A7%92%E7%AB%99%20Mong%20Kok%20MTR%20Station%20exit%20and%20entrance%20Augsut%202024%20R12S",
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/5/56/HK_YTM_MK_%E6%97%BA%E8%A7%92%E7%AB%99_Mong_Kok_MTR_Station_exit_and_entrance_Augsut_2024_R12S.jpg",
+          "thumbUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/56/HK_YTM_MK_%E6%97%BA%E8%A7%92%E7%AB%99_Mong_Kok_MTR_Station_exit_and_entrance_Augsut_2024_R12S.jpg/1280px-HK_YTM_MK_%E6%97%BA%E8%A7%92%E7%AB%99_Mong_Kok_MTR_Station_exit_and_entrance_Augsut_2024_R12S.jpg",
+          "mime": "image/jpeg",
+          "license": "cc0",
+          "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+          "author": "MONLKDWOEA oilsa",
+          "credit": "Own work"
+        }
+      ]
+    },
+    {
+      "query": "Wong Tai Sin Temple Hong Kong",
+      "best": null,
+      "candidates": []
+    },
+    {
+      "query": "Central MTR station",
+      "best": {
+        "title": "File:HK Central MTR Station toilet September 2024 R12S.jpg",
+        "pageUrl": "https://commons.wikimedia.org/wiki/File:HK%20Central%20MTR%20Station%20toilet%20September%202024%20R12S",
+        "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/d/dd/HK_Central_MTR_Station_toilet_September_2024_R12S.jpg",
+        "thumbUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/HK_Central_MTR_Station_toilet_September_2024_R12S.jpg/1280px-HK_Central_MTR_Station_toilet_September_2024_R12S.jpg",
+        "mime": "image/jpeg",
+        "license": "cc0",
+        "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+        "author": "JamezKinaLoon V802",
+        "credit": "Own work"
+      },
+      "candidates": [
+        {
+          "title": "File:HK Central MTR Station toilet September 2024 R12S.jpg",
+          "pageUrl": "https://commons.wikimedia.org/wiki/File:HK%20Central%20MTR%20Station%20toilet%20September%202024%20R12S",
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/d/dd/HK_Central_MTR_Station_toilet_September_2024_R12S.jpg",
+          "thumbUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/HK_Central_MTR_Station_toilet_September_2024_R12S.jpg/1280px-HK_Central_MTR_Station_toilet_September_2024_R12S.jpg",
+          "mime": "image/jpeg",
+          "license": "cc0",
+          "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+          "author": "JamezKinaLoon V802",
+          "credit": "Own work"
+        },
+        {
+          "title": "File:HK Central MTR Station platform September 2024 R12S 01.jpg",
+          "pageUrl": "https://commons.wikimedia.org/wiki/File:HK%20Central%20MTR%20Station%20platform%20September%202024%20R12S%2001",
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/a/a0/HK_Central_MTR_Station_platform_September_2024_R12S_01.jpg",
+          "thumbUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a0/HK_Central_MTR_Station_platform_September_2024_R12S_01.jpg/1280px-HK_Central_MTR_Station_platform_September_2024_R12S_01.jpg",
+          "mime": "image/jpeg",
+          "license": "cc0",
+          "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+          "author": "JamezKinaLoon V802",
+          "credit": "Own work"
+        },
+        {
+          "title": "File:HK Central MTR Station platform January 2025 R12S 03.jpg",
+          "pageUrl": "https://commons.wikimedia.org/wiki/File:HK%20Central%20MTR%20Station%20platform%20January%202025%20R12S%2003",
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/5/5a/HK_Central_MTR_Station_platform_January_2025_R12S_03.jpg",
+          "thumbUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/HK_Central_MTR_Station_platform_January_2025_R12S_03.jpg/1280px-HK_Central_MTR_Station_platform_January_2025_R12S_03.jpg",
+          "mime": "image/jpeg",
+          "license": "cc0",
+          "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+          "author": "ZEWIA dumlwp TELEAM",
+          "credit": "Own work"
+        },
+        {
+          "title": "File:HK Central MTR Station platform January 2025 R12S 02.jpg",
+          "pageUrl": "https://commons.wikimedia.org/wiki/File:HK%20Central%20MTR%20Station%20platform%20January%202025%20R12S%2002",
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/9/95/HK_Central_MTR_Station_platform_January_2025_R12S_02.jpg",
+          "thumbUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/95/HK_Central_MTR_Station_platform_January_2025_R12S_02.jpg/1280px-HK_Central_MTR_Station_platform_January_2025_R12S_02.jpg",
+          "mime": "image/jpeg",
+          "license": "cc0",
+          "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+          "author": "ZEWIA dumlwp TELEAM",
+          "credit": "Own work"
+        },
+        {
+          "title": "File:HK Central MTR Station platform January 2025 R12S 01.jpg",
+          "pageUrl": "https://commons.wikimedia.org/wiki/File:HK%20Central%20MTR%20Station%20platform%20January%202025%20R12S%2001",
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/f/fc/HK_Central_MTR_Station_platform_January_2025_R12S_01.jpg",
+          "thumbUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/fc/HK_Central_MTR_Station_platform_January_2025_R12S_01.jpg/1280px-HK_Central_MTR_Station_platform_January_2025_R12S_01.jpg",
+          "mime": "image/jpeg",
+          "license": "cc0",
+          "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+          "author": "ZEWIA dumlwp TELEAM",
+          "credit": "Own work"
+        }
+      ]
+    }
+  ]
+}

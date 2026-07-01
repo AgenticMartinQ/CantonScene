@@ -1,4 +1,5 @@
 const emailKey = "cantonscene.trialEmail";
+const temporaryVideoMediaKey = "cantonscene.temporaryVideoMedia";
 
 function scenesKey(email) {
   return `cantonscene.savedScenes.${email.toLowerCase()}`;
@@ -53,7 +54,10 @@ export function persistTrialUsage(email = "", usage) {
 export function loadSavedScenes(email = "") {
   if (!email) return [];
   try {
-    return JSON.parse(localStorage.getItem(scenesKey(email)) || "[]");
+    const scenes = JSON.parse(localStorage.getItem(scenesKey(email)) || "[]");
+    return Array.isArray(scenes)
+      ? scenes.map((scene) => (scene?.previewUrl?.startsWith("blob:") ? { ...scene, previewUrl: "" } : scene))
+      : [];
   } catch {
     return [];
   }
@@ -61,5 +65,37 @@ export function loadSavedScenes(email = "") {
 
 export function persistSavedScenes(email, scenes) {
   if (!email) return;
-  localStorage.setItem(scenesKey(email), JSON.stringify(scenes.slice(0, 3)));
+  const persistentScenes = scenes.slice(0, 3).map((scene) => (scene?.previewUrl?.startsWith("blob:") ? { ...scene, previewUrl: "" } : scene));
+  localStorage.setItem(scenesKey(email), JSON.stringify(persistentScenes));
+}
+
+export function loadTemporaryVideoMedia() {
+  try {
+    const items = JSON.parse(sessionStorage.getItem(temporaryVideoMediaKey) || "[]");
+    return Array.isArray(items) ? items.filter((item) => item?.storagePath) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function trackTemporaryVideoMedia(scene) {
+  if (!scene || scene.type !== "video" || !scene.storagePath) return;
+  const items = loadTemporaryVideoMedia().filter((item) => item.storagePath !== scene.storagePath);
+  items.push({
+    sceneId: scene.id,
+    storagePath: scene.storagePath,
+    createdAt: new Date().toISOString(),
+  });
+  sessionStorage.setItem(temporaryVideoMediaKey, JSON.stringify(items));
+}
+
+export function untrackTemporaryVideoMedia(sceneOrStoragePath) {
+  const storagePath = typeof sceneOrStoragePath === "string" ? sceneOrStoragePath : sceneOrStoragePath?.storagePath;
+  if (!storagePath) return;
+  const items = loadTemporaryVideoMedia().filter((item) => item.storagePath !== storagePath);
+  sessionStorage.setItem(temporaryVideoMediaKey, JSON.stringify(items));
+}
+
+export function clearTemporaryVideoMedia() {
+  sessionStorage.removeItem(temporaryVideoMediaKey);
 }
