@@ -1,4 +1,17 @@
+import { useMemo, useState } from "react";
+
 export default function SavedSheet({ scenes, trialEmail, saveLimit, onClose, onRestore, onDelete }) {
+  const [filter, setFilter] = useState("all");
+  const filteredScenes = useMemo(
+    () => (filter === "all" ? scenes : scenes.filter((scene) => scene.type === filter)),
+    [filter, scenes],
+  );
+  const filterLabels = {
+    all: "All",
+    photo: "Photos",
+    video: "Videos",
+  };
+
   return (
     <section className="saved-sheet">
       <header>
@@ -12,16 +25,18 @@ export default function SavedSheet({ scenes, trialEmail, saveLimit, onClose, onR
         </button>
       </header>
       <div className="saved-segment" aria-label="Saved library filters">
-        <button className="active">All</button>
-        <button>Photos</button>
-        <button>Videos</button>
+        {["all", "photo", "video"].map((item) => (
+          <button key={item} className={filter === item ? "active" : ""} onClick={() => setFilter(item)}>
+            {filterLabels[item]}
+          </button>
+        ))}
       </div>
       <div className="saved-count">
-        {scenes.length} {scenes.length === 1 ? "scene" : "scenes"} · {scenes.length}/{saveLimit} web trial saved
+        {filteredScenes.length} {filteredScenes.length === 1 ? "scene" : "scenes"} · {scenes.length}/{saveLimit} web trial saved
       </div>
       <div className="saved-grid">
-        {scenes.length ? (
-          scenes.map((scene) => (
+        {filteredScenes.length ? (
+          filteredScenes.map((scene) => (
             <button className="saved-tile" key={scene.id} onClick={() => onRestore(scene)}>
               {scene.type === "photo" ? <img className="saved-photo" src={scene.mediaUrl} alt="" /> : <video className="saved-photo" src={scene.mediaUrl} muted playsInline />}
               <span
@@ -52,8 +67,8 @@ export default function SavedSheet({ scenes, trialEmail, saveLimit, onClose, onR
           ))
         ) : (
           <div className="saved-empty">
-            <b>No saved scenes yet</b>
-            <span>Tap the heart after analyzing a photo or video.</span>
+            <b>{scenes.length ? `No saved ${filterLabels[filter].toLowerCase()} yet` : "No saved scenes yet"}</b>
+            <span>{scenes.length ? "Switch filters or save a matching scene." : "Tap the heart after analyzing a photo or video."}</span>
           </div>
         )}
       </div>

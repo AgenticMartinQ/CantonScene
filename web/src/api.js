@@ -1,7 +1,9 @@
-export async function createScene({ type, mediaBlob, fileName, detailLevel, videoFrames = [] }) {
+export async function createScene({ type, mediaBlob, fileName, detailLevel, videoFrames = [], trialEmail = "", trialUserId = "" }) {
   const form = new FormData();
   form.append("scene_type", type);
   form.append("detail_level", String(detailLevel));
+  if (trialEmail) form.append("trial_email", trialEmail);
+  if (trialUserId) form.append("trial_user_id", trialUserId);
   form.append("media", mediaBlob, fileName || (type === "video" ? "scene.webm" : "scene.jpg"));
   videoFrames.forEach((frame, index) => {
     form.append("video_frame", frame.blob, frame.fileName || `frame-${index + 1}.jpg`);
@@ -67,6 +69,21 @@ export async function verifyEmailOtp(email, token) {
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(`Email code verification failed: ${response.status} ${errorText}`);
+  }
+
+  return response.json();
+}
+
+export async function getEmailFromAuthSession({ accessToken = "", tokenHash = "", type = "" }) {
+  const response = await fetch("/api/auth/session-email", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ accessToken, tokenHash, type }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Email link verification failed: ${response.status} ${errorText}`);
   }
 
   return response.json();

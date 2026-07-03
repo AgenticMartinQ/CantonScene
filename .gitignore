@@ -27,3 +27,6 @@ pnpm-debug.log*
 tmp/
 uploads/
 generated/
+.vercel/
+.vercel-cli-cache/
+.vercel-cli-global/

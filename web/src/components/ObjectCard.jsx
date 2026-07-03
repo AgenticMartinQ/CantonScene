@@ -21,7 +21,7 @@ export default function ObjectCard({ object, language, selected, onSelect }) {
   return (
     <button
       className={`object-card ${selected ? "selected" : ""}`}
-      style={{ left: `${object.x}%`, top: `${object.y}%` }}
+      style={{ left: `${object.x}%`, top: `${object.y}%`, zIndex: selected ? 12 : 1 }}
       onClick={() => onSelect(object.id)}
     >
       {cardContent(object, language)}

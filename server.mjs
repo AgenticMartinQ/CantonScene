@@ -50,6 +50,10 @@ export async function handleNodeRequest(req, res) {
       return await handleVerifyEmailOtp(req, res);
     }
 
+    if (req.url === "/api/auth/session-email" && req.method === "POST") {
+      return await handleAuthSessionEmail(req, res);
+    }
+
     if (req.url?.startsWith("/api/media-url") && req.method === "GET") {
       return await handleMediaUrl(req, res);
     }
@@ -98,9 +102,16 @@ async function handleCreateScene(req, res) {
   const videoFrameFiles = form.getAll("video_frame").filter((item) => item && typeof item !== "string");
   const sceneType = String(form.get("scene_type") || "photo");
   const detailLevel = Number(form.get("detail_level") || 3);
+  const trialEmail = normalizeEmail(form.get("trial_email"));
+  const trialUserId = normalizeUuid(form.get("trial_user_id"));
 
   if (!media || typeof media === "string") {
     return sendJson(res, { error: "Missing media file" }, 400);
+  }
+
+  if (trialUserId || trialEmail) {
+    await ensureAppUser({ userId: trialUserId, email: trialEmail });
+    profiler.mark("upsert_app_user");
   }
 
   const sceneId = randomUUID();
@@ -124,6 +135,8 @@ async function handleCreateScene(req, res) {
   profiler.mark("upload_media");
 
   const [mediaAsset] = await supabaseInsert("media_assets", {
+    user_id: trialUserId || null,
+    trial_email: trialEmail || null,
     media_type: mediaType,
     storage_path: storagePath,
     mime_type: media.type,
@@ -143,6 +156,8 @@ async function handleCreateScene(req, res) {
   profiler.mark("cantonese_localization_qa");
 
   const [scene] = await supabaseInsert("learning_scenes", {
+    user_id: trialUserId || null,
+    trial_email: trialEmail || null,
     media_asset_id: mediaAsset.id,
     scene_type: mediaType,
     status: "ready",
@@ -204,6 +219,8 @@ async function handleCreateScene(req, res) {
   return sendJson(res, {
     id: scene.id,
     type: mediaType,
+    userId: scene.user_id || "",
+    trialEmail: scene.trial_email || "",
     storagePath,
     mediaUrl: signedMediaUrl,
     englishSummary: clientAnalysis.english_summary,
@@ -289,6 +306,7 @@ async function handleRequestEmailOtp(req, res) {
       email,
       create_user: true,
       should_create_user: true,
+      email_redirect_to: requestOrigin(req),
     }),
   });
   if (!response.ok) {
@@ -307,22 +325,27 @@ async function handleVerifyEmailOtp(req, res) {
   const token = String(payload.token || "").trim().replace(/\s+/g, "");
   if (!email || token.length < 4) return sendJson(res, { error: "Invalid email or code" }, 400);
 
-  const response = await fetch(`${env.SUPABASE_URL}/auth/v1/verify`, {
-    method: "POST",
-    headers: {
-      apikey: authKey,
-      authorization: `Bearer ${authKey}`,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      email,
-      token,
-      type: "email",
-    }),
-  });
-  const json = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    return sendJson(res, { error: `Supabase OTP verify failed: ${JSON.stringify(json).slice(0, 240)}` }, response.status);
+  let response;
+  let json = {};
+  for (const type of ["email", "signup"]) {
+    response = await fetch(`${env.SUPABASE_URL}/auth/v1/verify`, {
+      method: "POST",
+      headers: {
+        apikey: authKey,
+        authorization: `Bearer ${authKey}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        email,
+        token,
+        type,
+      }),
+    });
+    json = await response.json().catch(() => ({}));
+    if (response.ok) break;
+  }
+  if (!response?.ok) {
+    return sendJson(res, { error: `Supabase OTP verify failed: ${JSON.stringify(json).slice(0, 240)}` }, response?.status || 400);
   }
   return sendJson(res, {
     ok: true,
@@ -332,9 +355,77 @@ async function handleVerifyEmailOtp(req, res) {
   });
 }
 
+async function handleAuthSessionEmail(req, res) {
+  requireEnv(["SUPABASE_URL"]);
+  const authKey = supabaseAuthApiKey();
+  if (!authKey) throw new Error("Missing SUPABASE_PUBLISHABLE_KEY or Supabase service key");
+  const payload = await readJsonRequestBody(req);
+  const accessToken = String(payload.accessToken || "").trim();
+  const tokenHash = String(payload.tokenHash || "").trim();
+  const type = safeSupabaseOtpType(payload.type);
+
+  if (accessToken) {
+    const response = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, {
+      headers: {
+        apikey: authKey,
+        authorization: `Bearer ${accessToken}`,
+      },
+    });
+    const json = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return sendJson(res, { error: `Supabase session lookup failed: ${JSON.stringify(json).slice(0, 240)}` }, response.status);
+    }
+    const email = normalizeEmail(json.email);
+    if (!email) return sendJson(res, { error: "Supabase session did not include an email" }, 400);
+    return sendJson(res, { ok: true, email, userId: json.id || "" });
+  }
+
+  if (tokenHash) {
+    const response = await fetch(`${env.SUPABASE_URL}/auth/v1/verify`, {
+      method: "POST",
+      headers: {
+        apikey: authKey,
+        authorization: `Bearer ${authKey}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        token_hash: tokenHash,
+        type,
+      }),
+    });
+    const json = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return sendJson(res, { error: `Supabase magic link verify failed: ${JSON.stringify(json).slice(0, 240)}` }, response.status);
+    }
+    const email = normalizeEmail(json.user?.email);
+    if (!email) return sendJson(res, { error: "Supabase magic link did not include an email" }, 400);
+    return sendJson(res, { ok: true, email, userId: json.user?.id || "" });
+  }
+
+  return sendJson(res, { error: "Missing Supabase auth token" }, 400);
+}
+
 function normalizeEmail(email) {
   const value = String(email || "").trim().toLowerCase();
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? value : "";
+}
+
+function normalizeUuid(value) {
+  const text = String(value || "").trim();
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(text) ? text : "";
+}
+
+function safeSupabaseOtpType(type) {
+  const value = String(type || "").trim();
+  return ["signup", "invite", "magiclink", "recovery", "email_change", "email"].includes(value) ? value : "magiclink";
+}
+
+function requestOrigin(req) {
+  const forwardedHost = req.headers["x-forwarded-host"];
+  const host = Array.isArray(forwardedHost) ? forwardedHost[0] : forwardedHost || req.headers.host;
+  const forwardedProto = req.headers["x-forwarded-proto"];
+  const proto = Array.isArray(forwardedProto) ? forwardedProto[0] : forwardedProto || "https";
+  return host ? `${proto}://${host}` : "";
 }
 
 async function handleTemporaryMediaCleanup(req, res) {
@@ -439,6 +530,13 @@ function understandingSourceModel(mediaType) {
 
 
 async function safelyLocalizeCantonese(analysis, context = {}) {
+  if (analysisHasLocalizedCantonese(analysis)) {
+    return {
+      ...localizedResultFromAnalysis(analysis),
+      localization_status: "complete",
+      localization_error: "",
+    };
+  }
   if (!env.OPENAI_API_KEY) {
     return fallbackLocalization(analysis, {
       localization_status: "skipped",
@@ -460,6 +558,36 @@ async function safelyLocalizeCantonese(analysis, context = {}) {
   }
 }
 
+function analysisHasLocalizedCantonese(analysis) {
+  return Boolean(
+    analysis?.cantonese_summary &&
+      analysis?.jyutping_summary &&
+      Array.isArray(analysis.objects) &&
+      analysis.objects.length &&
+      analysis.objects.every((object) => object.cantonese_label && object.jyutping_label),
+  );
+}
+
+function localizedResultFromAnalysis(analysis) {
+  return normalizeLocalizedResult(
+    {
+      qa_status: "pass",
+      scene: {
+        english: analysis.english_summary,
+        cantonese: analysis.cantonese_summary,
+        jyutping: analysis.jyutping_summary,
+      },
+      objects: analysis.objects.map((object) => ({
+        stable_id: object.stable_id,
+        english_label: object.english_label,
+        cantonese_label: object.cantonese_label,
+        jyutping_label: object.jyutping_label,
+      })),
+    },
+    analysis,
+  );
+}
+
 function publicLocalizationError(error) {
   const message = error.message || "";
   if (message.includes("429") || message.toLowerCase().includes("quota")) {
@@ -469,6 +597,15 @@ function publicLocalizationError(error) {
 }
 
 async function safelyGenerateSceneAudio({ scene, mediaType, objects, cantoneseSummary, mediaBytes }) {
+  if (mediaType === "photo") {
+    return {
+      audio_status: "skipped",
+      audio_error: "",
+      sceneAudioUrl: "",
+      objectAudioUrls: {},
+    };
+  }
+
   if (!env.OPENAI_API_KEY) {
     return {
       audio_status: "skipped",
@@ -595,7 +732,10 @@ async function generateAndStoreTtsAudio({ sceneId, detectedObjectId = null, text
 async function analyzeSceneMedia({ buffer, mimeType, mediaType, videoFrames = [] }) {
   if (mediaType === "video" && videoUnderstandingProvider() === "openai_frames") {
     if (videoFrames.length) return analyzeVideoFramesWithOpenAi({ frames: videoFrames, mediaBytes: buffer.byteLength });
-    if (env.VIDEO_UNDERSTANDING_FALLBACK === "gemini") return analyzeWithGemini({ buffer, mimeType, mediaType });
+    if (env.GEMINI_API_KEY) {
+      console.warn("Missing sampled video frames; falling back to Gemini raw video understanding.");
+      return analyzeWithGemini({ buffer, mimeType, mediaType });
+    }
     throw new Error("Missing sampled video frames for OpenAI video understanding");
   }
 
@@ -913,6 +1053,8 @@ function normalizeAnalysis(analysis, options = {}) {
     ...fallback,
     ...analysis,
     english_summary: analysis.english_summary || analysis.english_scene_summary || fallback.english_summary,
+    cantonese_summary: analysis.cantonese_summary || analysis.cantonese_scene_summary || "",
+    jyutping_summary: analysis.jyutping_summary || analysis.jyutping_scene_summary || "",
   };
   normalized.objects = Array.isArray(normalized.objects || normalized.key_objects)
     ? (normalized.objects || normalized.key_objects).slice(0, 8)
@@ -921,6 +1063,8 @@ function normalizeAnalysis(analysis, options = {}) {
     stable_id: String(object.stable_id || object.id || `object-${index + 1}`),
     english_label: String(object.english_label || object.label || object.name || `Object ${index + 1}`),
     description_en: String(object.description_en || object.english_description || object.description || ""),
+    cantonese_label: String(object.cantonese_label || object.cantonese || object.label_cantonese || ""),
+    jyutping_label: String(object.jyutping_label || object.jyutping || object.label_jyutping || ""),
     confidence: typeof object.confidence === "number" ? object.confidence : typeof object.visual_confidence === "number" ? object.visual_confidence : null,
     bbox: normalizeBbox(object.bbox),
     card_position: normalizeCardPosition(object.card_position),
@@ -945,16 +1089,20 @@ function photoObjectDetectionPrompt() {
     "For each target, provide:",
     "- stable_id: short kebab-case id",
     "- english_label: concise natural English label",
+    "- cantonese_label: short natural spoken Hong Kong Cantonese label in Traditional Chinese",
+    "- jyutping_label: Jyutping with tone numbers for cantonese_label",
     "- english_description: one short sentence",
     "- bbox: normalized coordinates {x, y, width, height} from 0 to 1",
     "- card_position: recommended floating card anchor {x, y} as percentages from 0 to 100, avoiding important visual content, the right rail, and bottom shutter controls",
     "- visual_confidence: 0 to 1",
     "Also provide:",
     "- english_scene_summary: one sentence describing the full scene",
+    "- cantonese_scene_summary: natural spoken Hong Kong Cantonese scene sentence in Traditional Chinese",
+    "- jyutping_scene_summary: Jyutping with tone numbers for cantonese_scene_summary",
     "- scene_type: photo",
     "- detail_candidates_count",
     "Do not invent objects that are not visible. Do not include tiny or ambiguous items unless culturally important.",
-    'Use this exact top-level JSON shape: {"english_scene_summary":"...","scene_type":"photo","detail_candidates_count":0,"objects":[{"stable_id":"...","english_label":"...","english_description":"...","bbox":{"x":0,"y":0,"width":0,"height":0},"card_position":{"x":0,"y":0},"visual_confidence":0.0}]}',
+    'Use this exact top-level JSON shape: {"english_scene_summary":"...","cantonese_scene_summary":"...","jyutping_scene_summary":"...","scene_type":"photo","detail_candidates_count":0,"objects":[{"stable_id":"...","english_label":"...","cantonese_label":"...","jyutping_label":"...","english_description":"...","bbox":{"x":0,"y":0,"width":0,"height":0},"card_position":{"x":0,"y":0},"visual_confidence":0.0}]}',
   ].join("\n");
 }
 
@@ -1075,19 +1223,20 @@ function normalizeLocalizedResult(result, analysis) {
     qa_notes: Array.isArray(result.qa_notes) ? result.qa_notes : [],
     scene: {
       english: scene.english || analysis.english_summary,
-      cantonese: scene.cantonese || "",
-      jyutping: scene.jyutping || "",
+      cantonese: scene.cantonese || analysis.cantonese_summary || "",
+      jyutping: scene.jyutping || analysis.jyutping_summary || "",
     },
     objects: analysis.objects.map((object) => {
       const localized = objects.find((item) => item.stable_id === object.stable_id || item.english_label === object.english_label) || {};
+      const fallback = dictionaryLocalizationForObject(object);
       return {
         stable_id: object.stable_id,
         english_label: object.english_label,
-        cantonese_label: localized.cantonese_label || "",
-        jyutping_label: localized.jyutping_label || "",
+        cantonese_label: localized.cantonese_label || localized.cantonese || localized.label_cantonese || object.cantonese_label || fallback.cantonese || "",
+        jyutping_label: localized.jyutping_label || localized.jyutping || localized.label_jyutping || object.jyutping_label || fallback.jyutping || "",
         english_description: object.description_en,
-        cantonese_description: localized.cantonese_description || "",
-        jyutping_description: localized.jyutping_description || "",
+        cantonese_description: localized.cantonese_description || localized.description_cantonese || "",
+        jyutping_description: localized.jyutping_description || localized.description_jyutping || "",
       };
     }),
   };
@@ -1170,18 +1319,26 @@ function normalizeCardPosition(position) {
 
 function toClientObject(object, analysisObject, localizedObject, index) {
   const position = analysisObject.card_position || cardPositionFromBbox(analysisObject.bbox) || fallbackPositions[index % fallbackPositions.length];
+  const fallback = dictionaryLocalizationForObject(analysisObject);
   return {
     id: analysisObject.stable_id || object.id,
     dbId: object.id,
     english: object.english_label,
-    cantonese: object.cantonese_label || "待翻譯",
-    jyutping: object.jyutping || "",
+    cantonese: object.cantonese_label || localizedObject.cantonese_label || fallback.cantonese || object.english_label,
+    jyutping: object.jyutping || localizedObject.jyutping_label || fallback.jyutping || "",
     description: object.description_en || "",
     cantoneseDescription: localizedObject.cantonese_description || "",
     jyutpingDescription: localizedObject.jyutping_description || "",
     x: position.x,
     y: position.y,
   };
+}
+
+function dictionaryLocalizationForObject(object = {}) {
+  const text = `${object.english_label || ""} ${object.description_en || ""}`.toLowerCase();
+  const directKey = Object.keys(cantoneseDictionary).find((key) => text === key || text.includes(key));
+  if (directKey) return cantoneseDictionary[directKey];
+  return {};
 }
 
 function cardPositionFromBbox(bbox) {
@@ -1263,6 +1420,39 @@ async function supabaseInsert(table, row) {
     throw new Error(`Supabase insert ${table} failed: ${response.status} ${errorText}`);
   }
   return response.json();
+}
+
+async function supabaseUpsert(table, row, onConflict) {
+  const query = onConflict ? `?on_conflict=${encodeURIComponent(onConflict)}` : "";
+  const response = await fetch(`${env.SUPABASE_URL}/rest/v1/${table}${query}`, {
+    method: "POST",
+    headers: {
+      apikey: secretKey(),
+      authorization: `Bearer ${secretKey()}`,
+      "content-type": "application/json",
+      prefer: "resolution=merge-duplicates,return=representation",
+    },
+    body: JSON.stringify(row),
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Supabase upsert ${table} failed: ${response.status} ${errorText}`);
+  }
+  return response.json();
+}
+
+async function ensureAppUser({ userId, email }) {
+  if (!userId) return null;
+  const [user] = await supabaseUpsert(
+    "app_users",
+    {
+      id: userId,
+      email: email || null,
+      last_seen_at: new Date().toISOString(),
+    },
+    "id",
+  );
+  return user || null;
 }
 
 async function supabaseSelect(table, columns, query = "") {
@@ -1543,9 +1733,28 @@ const fallbackPositions = [
 ];
 
 const cantoneseDictionary = {
+  bag: { cantonese: "袋", jyutping: "doi2" },
+  book: { cantonese: "書", jyutping: "syu1" },
+  bottle: { cantonese: "樽", jyutping: "zeon1" },
+  bowl: { cantonese: "碗", jyutping: "wun2" },
+  box: { cantonese: "盒", jyutping: "hap6" },
+  building: { cantonese: "大廈", jyutping: "daai6 haa6" },
+  car: { cantonese: "車", jyutping: "ce1" },
+  chair: { cantonese: "凳", jyutping: "dang3" },
+  computer: { cantonese: "電腦", jyutping: "din6 nou5" },
+  flower: { cantonese: "花", jyutping: "faa1" },
   fruit: { cantonese: "生果", jyutping: "sang1 gwo2" },
-  signboard: { cantonese: "招牌", jyutping: "ziu1 paai4" },
+  keyboard: { cantonese: "鍵盤", jyutping: "gin6 pun2" },
+  laptop: { cantonese: "手提電腦", jyutping: "sau2 tai4 din6 nou5" },
+  paper: { cantonese: "紙", jyutping: "zi2" },
+  phone: { cantonese: "電話", jyutping: "din6 waa2" },
   person: { cantonese: "人", jyutping: "jan4" },
+  plant: { cantonese: "植物", jyutping: "zik6 mat6" },
+  plate: { cantonese: "碟", jyutping: "dip2" },
+  screen: { cantonese: "螢幕", jyutping: "jing4 mok6" },
+  signboard: { cantonese: "招牌", jyutping: "ziu1 paai4" },
+  table: { cantonese: "枱", jyutping: "toi2" },
+  tissue: { cantonese: "紙巾", jyutping: "zi2 gan1" },
   cup: { cantonese: "杯", jyutping: "bui1" },
   tea: { cantonese: "茶", jyutping: "caa4" },
   street: { cantonese: "街", jyutping: "gaai1" },

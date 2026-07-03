@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { requestEmailOtp, verifyEmailOtp } from "../api.js";
 
-export default function TrialIdentitySheet({ reason = "save", onSubmit, onClose }) {
+export default function TrialIdentitySheet({ reason = "save", bypassEmails = new Set(), onSubmit, onClose }) {
   const [email, setEmail] = useState("");
   const [token, setToken] = useState("");
   const [step, setStep] = useState("email");
@@ -16,6 +16,10 @@ export default function TrialIdentitySheet({ reason = "save", onSubmit, onClose 
     if (step === "email") {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
         setError("Enter a valid email address.");
+        return;
+      }
+      if (bypassEmails.has(normalized)) {
+        onSubmit(normalized);
         return;
       }
       setLoading(true);
@@ -39,7 +43,7 @@ export default function TrialIdentitySheet({ reason = "save", onSubmit, onClose 
     setLoading(true);
     try {
       const result = await verifyEmailOtp(normalized, normalizedToken);
-      onSubmit(result.email || normalized);
+      onSubmit({ email: result.email || normalized, userId: result.userId || "" });
     } catch {
       setError("That code did not work. Please check the email and try again.");
     } finally {
@@ -62,6 +66,9 @@ export default function TrialIdentitySheet({ reason = "save", onSubmit, onClose 
     }
   }
 
+  const normalizedEmail = email.trim().toLowerCase();
+  const canBypassEmail = bypassEmails.has(normalizedEmail);
+
   return (
     <section className="trial-sheet">
       <button className="sheet-close" aria-label="Close" onClick={onClose}>
@@ -73,7 +80,7 @@ export default function TrialIdentitySheet({ reason = "save", onSubmit, onClose 
       </h1>
       <p>
         {step === "code"
-          ? `Enter the verification code sent to ${email}.`
+          ? `Enter the verification code sent to ${email}, or open the verification link in this browser.`
           : reason === "camera"
             ? "Verify your email once this session to use the camera shutter."
             : reason === "upload"
@@ -103,7 +110,7 @@ export default function TrialIdentitySheet({ reason = "save", onSubmit, onClose 
         )}
         {error ? <em className="trial-error">{error}</em> : null}
         <button type="submit" disabled={loading}>
-          {loading ? "Please wait..." : step === "email" ? "Send code" : "Verify"}
+          {loading ? "Please wait..." : step === "email" ? (canBypassEmail ? "Continue" : "Send code") : "Verify"}
         </button>
         {step === "code" ? (
           <button className="trial-link-button" type="button" disabled={loading} onClick={resendCode}>

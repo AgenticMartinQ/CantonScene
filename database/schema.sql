@@ -6,12 +6,14 @@ create table if not exists app_users (
   display_name text,
   native_language text default 'en',
   learning_level text default 'beginner',
+  last_seen_at timestamptz,
   created_at timestamptz default now()
 );
 
 create table if not exists media_assets (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references app_users(id) on delete cascade,
+  trial_email text,
   media_type text not null check (media_type in ('photo', 'video', 'audio')),
   storage_path text not null,
   thumbnail_path text,
@@ -26,6 +28,7 @@ create table if not exists media_assets (
 create table if not exists learning_scenes (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references app_users(id) on delete cascade,
+  trial_email text,
   media_asset_id uuid references media_assets(id) on delete cascade,
   scene_type text not null check (scene_type in ('photo', 'video')),
   status text not null default 'uploaded' check (status in ('uploaded', 'processing', 'ready', 'failed')),
@@ -168,6 +171,16 @@ alter table model_runs add column if not exists media_bytes bigint;
 alter table model_runs add column if not exists input_cost_usd numeric;
 alter table model_runs add column if not exists output_cost_usd numeric;
 alter table model_runs add column if not exists error_message text;
+
+alter table app_users add column if not exists last_seen_at timestamptz;
+alter table media_assets add column if not exists trial_email text;
+alter table learning_scenes add column if not exists trial_email text;
+
+create index if not exists app_users_email_idx on app_users (email);
+create index if not exists media_assets_user_created_idx on media_assets (user_id, created_at desc);
+create index if not exists media_assets_trial_email_created_idx on media_assets (trial_email, created_at desc);
+create index if not exists learning_scenes_user_created_idx on learning_scenes (user_id, created_at desc);
+create index if not exists learning_scenes_trial_email_created_idx on learning_scenes (trial_email, created_at desc);
 
 create index if not exists model_runs_created_at_idx on model_runs (created_at desc);
 create index if not exists model_runs_task_type_idx on model_runs (task_type);

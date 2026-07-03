@@ -7,6 +7,28 @@ export default function ShutterControls({
   onRepeat,
   nativePlaying,
 }) {
+  function handlePointerDown(event) {
+    event.preventDefault();
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    onShutterDown(event);
+  }
+
+  function handlePointerUp(event) {
+    event.preventDefault();
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+    onShutterUp(event);
+  }
+
+  function handlePointerCancel(event) {
+    event.preventDefault();
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+    onShutterUp(event);
+  }
+
+  function preventBrowserGesture(event) {
+    event.preventDefault();
+  }
+
   return (
     <>
       <button className="shutter-action native-action" aria-label="Play native audio" onClick={onNative}>
@@ -17,10 +39,13 @@ export default function ShutterControls({
         className={`camera-shutter ${recording ? "recording" : ""}`}
         style={{ "--record-progress": `${progressDegrees}deg` }}
         aria-label="Tap for photo, hold for video"
-        onPointerDown={onShutterDown}
-        onPointerUp={onShutterUp}
-        onPointerLeave={onShutterUp}
-        onPointerCancel={onShutterUp}
+        draggable="false"
+        onContextMenu={preventBrowserGesture}
+        onDragStart={preventBrowserGesture}
+        onSelect={preventBrowserGesture}
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
       >
         <i />
       </button>

@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { cleanupTemporaryMedia, createScene, getSignedMediaUrl } from "./api.js";
-import { getDailyDemoScene, mockObjects } from "./mockData.js";
+import { cleanupTemporaryMedia, createScene, getEmailFromAuthSession, getSignedMediaUrl } from "./api.js";
+import { getDailyDemoScene } from "./mockData.js";
 import {
   clearTemporaryVideoMedia,
   loadSavedScenes,
   loadTemporaryVideoMedia,
   loadTrialEmail,
+  loadTrialUserId,
   loadTrialUsage,
   persistSavedScenes,
   persistTrialEmail,
+  persistTrialUserId,
   persistTrialUsage,
   trackTemporaryVideoMedia,
   untrackTemporaryVideoMedia,
@@ -25,14 +27,20 @@ import TrialIdentitySheet from "./components/TrialIdentitySheet.jsx";
 import CostDashboard from "./components/CostDashboard.jsx";
 
 const WEB_TRIAL_SAVE_LIMIT = 3;
-const WEB_TRIAL_MEDIA_LIMIT = 3;
-const TRIAL_LIMIT_MESSAGE = "Trial user limit is reached. Please register on mobile Apps version to continue.";
+const WEB_TRIAL_MEDIA_LIMIT = 5;
+const TRIAL_SAVE_LIMIT_MESSAGE = "Web trial can save up to 3 scenes. Please register on mobile Apps version to continue.";
+const TRIAL_MEDIA_LIMIT_MESSAGE = "Web trial includes up to 5 photos and 5 videos. Please register on mobile Apps version to continue.";
 const DEV_UNLIMITED_EMAILS = new Set(["martinqiao.ai@gmail.com"]);
 const PHOTO_AI_MAX_EDGE = 1600;
 const PHOTO_AI_JPEG_QUALITY = 0.82;
 const VIDEO_FRAME_COUNT = 8;
-const VIDEO_FRAME_MAX_EDGE = 768;
-const VIDEO_FRAME_JPEG_QUALITY = 0.72;
+const VIDEO_FRAME_MAX_EDGE = 512;
+const VIDEO_FRAME_JPEG_QUALITY = 0.62;
+const CAMERA_ZOOM_LEVELS = [0.5, 1, 4];
+const clockFormatter = new Intl.DateTimeFormat(undefined, {
+  hour: "numeric",
+  minute: "2-digit",
+});
 
 export default function App() {
   const phoneRef = useRef(null);
@@ -45,17 +53,22 @@ export default function App() {
   const mediaRecorderRef = useRef(null);
   const recordChunksRef = useRef([]);
   const recordTimerRef = useRef(null);
+  const recordFrameTimerRef = useRef(null);
+  const recordVideoFramesRef = useRef([]);
   const repeatRecorderRef = useRef(null);
   const repeatStartedAtRef = useRef(0);
   const nativeAudioRef = useRef(null);
   const nativeTargetRef = useRef("");
+  const authReturnHandledRef = useRef(false);
 
   const [language, setLanguage] = useState("both");
+  const [statusTime, setStatusTime] = useState(() => clockFormatter.format(new Date()));
   const [detailLevel, setDetailLevel] = useState(3);
   const [dailyDemoScene, setDailyDemoScene] = useState(() => getDailyDemoScene());
   const [activeScene, setActiveScene] = useState(() => getDailyDemoScene());
   const [selectedObjectId, setSelectedObjectId] = useState(null);
   const [trialEmail, setTrialEmail] = useState(() => loadTrialEmail());
+  const [trialUserId, setTrialUserId] = useState(() => loadTrialUserId());
   const [savedScenes, setSavedScenes] = useState(() => loadSavedScenes(loadTrialEmail()));
   const [trialUsage, setTrialUsage] = useState(() => loadTrialUsage(loadTrialEmail()));
   const [capturedMedia, setCapturedMedia] = useState(() => ({ type: "photo", url: getDailyDemoScene().mediaUrl, fit: "cover" }));
@@ -67,38 +80,101 @@ export default function App() {
   const [railCollapsed, setRailCollapsed] = useState(true);
   const [sliderOpen, setSliderOpen] = useState(false);
   const [recordingVideo, setRecordingVideo] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
+  const [cameraStarting, setCameraStarting] = useState(false);
+  const [cameraDevices, setCameraDevices] = useState([]);
+  const [selectedCameraId, setSelectedCameraId] = useState("");
+  const [selectedZoom, setSelectedZoom] = useState(1);
   const [recordProgress, setRecordProgress] = useState(0);
   const [currentMediaBlob, setCurrentMediaBlob] = useState(null);
   const [latestScore, setLatestScore] = useState(null);
   const [nativePlaying, setNativePlaying] = useState(false);
+  const [videoPreviewFailed, setVideoPreviewFailed] = useState(false);
   const [trialSheetOpen, setTrialSheetOpen] = useState(false);
   const [pendingIdentityAction, setPendingIdentityAction] = useState(null);
   const [photoFrame, setPhotoFrame] = useState(null);
 
+  const cameraLive = cameraReady && !capturedMedia;
   const sourceObjects = activeScene?.isDemo
     ? dailyDemoScene.objects
     : activeScene?.isPending
       ? []
       : activeScene?.type === "video"
         ? []
-    : activeScene?.objects?.length
-      ? activeScene.objects
-      : dailyDemoScene.objects;
+        : activeScene?.objects || [];
   const objects = sourceObjects.slice(0, Math.min(sourceObjects.length, detailLevel));
   const selectedObject = useMemo(
     () => objects.find((object) => object.id === selectedObjectId) || null,
     [objects, selectedObjectId],
   );
   const displayObjects = useMemo(
-    () => objects.map((object) => mapObjectToPhotoFrame(object, capturedMedia, photoFrame)),
-    [objects, capturedMedia, photoFrame],
+    () => (cameraLive ? [] : objects.map((object) => mapObjectToPhotoFrame(object, capturedMedia, photoFrame))),
+    [cameraLive, objects, capturedMedia, photoFrame],
   );
   const activeSceneSaved = Boolean(activeScene?.id && savedScenes.some((scene) => scene.id === activeScene.id));
 
   useEffect(() => {
-    startCamera();
     return () => {
       streamRef.current?.getTracks().forEach((track) => track.stop());
+    };
+  }, []);
+
+  useEffect(() => {
+    const updateAppViewportHeight = () => {
+      const viewportHeight = window.visualViewport?.height || window.innerHeight;
+      document.documentElement.style.setProperty("--app-viewport-height", `${Math.round(viewportHeight)}px`);
+    };
+    updateAppViewportHeight();
+    window.visualViewport?.addEventListener("resize", updateAppViewportHeight);
+    window.visualViewport?.addEventListener("scroll", updateAppViewportHeight);
+    window.addEventListener("resize", updateAppViewportHeight);
+    window.addEventListener("orientationchange", updateAppViewportHeight);
+    return () => {
+      window.visualViewport?.removeEventListener("resize", updateAppViewportHeight);
+      window.visualViewport?.removeEventListener("scroll", updateAppViewportHeight);
+      window.removeEventListener("resize", updateAppViewportHeight);
+      window.removeEventListener("orientationchange", updateAppViewportHeight);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!navigator.mediaDevices?.addEventListener) return;
+    const handleDeviceChange = () => refreshCameraDevices();
+    navigator.mediaDevices.addEventListener("devicechange", handleDeviceChange);
+    return () => navigator.mediaDevices.removeEventListener("devicechange", handleDeviceChange);
+  }, []);
+
+  useEffect(() => {
+    const updateStatusTime = () => setStatusTime(clockFormatter.format(new Date()));
+    updateStatusTime();
+    const timer = window.setInterval(updateStatusTime, 30000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (authReturnHandledRef.current) return;
+    const authReturn = readSupabaseAuthReturn();
+    if (!authReturn) return;
+    authReturnHandledRef.current = true;
+    let cancelled = false;
+
+    async function completeEmailLinkSignIn() {
+      try {
+        const result = await getEmailFromAuthSession(authReturn);
+        if (cancelled) return;
+        setTrialIdentity(result);
+        setToast(`Email verified for ${result.email}`);
+      } catch (error) {
+        console.warn(error);
+        if (!cancelled) setToast("Email link could not be verified. Please request a new link.");
+      } finally {
+        if (!cancelled) clearSupabaseAuthReturn();
+      }
+    }
+
+    completeEmailLinkSignIn();
+    return () => {
+      cancelled = true;
     };
   }, []);
 
@@ -408,22 +484,103 @@ export default function App() {
     return new File([blob], `${baseName}.jpg`, { type: "image/jpeg" });
   }
 
-  async function startCamera() {
+  async function refreshCameraDevices(activeStream = streamRef.current) {
+    if (!navigator.mediaDevices?.enumerateDevices) return;
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = devices.filter((device) => device.kind === "videoinput" && isBackCameraDevice(device));
+      setCameraDevices(videoDevices);
+      const activeDeviceId = activeStream?.getVideoTracks?.()[0]?.getSettings?.().deviceId || "";
+      if (activeDeviceId) setSelectedCameraId(activeDeviceId);
+    } catch (error) {
+      console.warn(error);
+    }
+  }
+
+  function isBackCameraDevice(device) {
+    const label = String(device.label || "").toLowerCase();
+    if (!label) return true;
+    if (label.includes("front") || label.includes("user") || label.includes("facetime")) return false;
+    return label.includes("back") || label.includes("rear") || label.includes("environment") || label.includes("wide") || label.includes("tele") || label.includes("camera");
+  }
+
+  function zoomLabel(level) {
+    return level === 0.5 ? ".5" : level === 1 ? "1" : `${level}`;
+  }
+
+  function deviceScoreForZoom(device, zoomLevel) {
+    const label = String(device.label || "").toLowerCase();
+    if (zoomLevel === 0.5 && (label.includes("ultra") || label.includes("0.5") || label.includes("0,5"))) return 0;
+    if (zoomLevel === 1 && label.includes("wide") && !label.includes("ultra")) return 0;
+    if (zoomLevel >= 2 && (label.includes("tele") || label.includes(`${zoomLevel}x`) || label.includes(`${zoomLevel}×`))) return 0;
+    if (label.includes("back") || label.includes("rear")) return 1;
+    return 2;
+  }
+
+  function backCameraForZoom(zoomLevel) {
+    if (!cameraDevices.length) return "";
+    return [...cameraDevices].sort((a, b) => deviceScoreForZoom(a, zoomLevel) - deviceScoreForZoom(b, zoomLevel))[0]?.deviceId || "";
+  }
+
+  async function applyCameraZoom(zoomLevel) {
+    const track = streamRef.current?.getVideoTracks?.()[0];
+    if (!track?.getCapabilities || !track?.applyConstraints) return false;
+    const capabilities = track.getCapabilities();
+    if (!capabilities.zoom) return false;
+    const min = Number(capabilities.zoom.min ?? 1);
+    const max = Number(capabilities.zoom.max ?? zoomLevel);
+    const zoom = Math.max(min, Math.min(max, zoomLevel));
+    try {
+      await track.applyConstraints({ advanced: [{ zoom }] });
+      return true;
+    } catch (error) {
+      console.warn(error);
+      return false;
+    }
+  }
+
+  async function startCamera(deviceId = selectedCameraId, zoomLevel = selectedZoom) {
+    if (cameraStarting) return false;
     if (!navigator.mediaDevices?.getUserMedia) {
       setToast("Camera unavailable here. Upload still works.");
-      return;
+      return false;
     }
 
+    setCameraStarting(true);
     try {
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      const videoConstraints = {
+        width: { ideal: 720 },
+        height: { ideal: 1280 },
+        frameRate: { ideal: 24, max: 30 },
+        ...(deviceId ? { deviceId: { exact: deviceId } } : { facingMode: { ideal: "environment" } }),
+      };
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
-        audio: true,
+        video: videoConstraints,
+        audio: false,
       });
       streamRef.current = stream;
+      if (!feedRef.current) return false;
       feedRef.current.srcObject = stream;
+      setCapturedMedia(null);
       await feedRef.current.play();
-    } catch {
+      await refreshCameraDevices(stream);
+      await applyCameraZoom(zoomLevel);
+      const ready = Boolean(feedRef.current.videoWidth);
+      setCameraReady(ready);
+      return true;
+    } catch (error) {
+      if (deviceId) {
+        console.warn(error);
+        setSelectedCameraId("");
+        setCameraStarting(false);
+        return startCamera("", zoomLevel);
+      }
+      setCameraReady(false);
       setToast("Camera permission needed. Upload still works.");
+      return false;
+    } finally {
+      setCameraStarting(false);
     }
   }
 
@@ -469,7 +626,7 @@ export default function App() {
     event.target.value = "";
   }
 
-  function startShutterPress(event) {
+  async function startShutterPress(event) {
     event.preventDefault();
     if (!trialEmail) {
       setPendingIdentityAction("camera");
@@ -477,6 +634,11 @@ export default function App() {
       return;
     }
     if (pressTimerRef.current || recordingVideo) return;
+    if (!cameraLive) {
+      setToast(cameraStarting ? "Camera starting..." : "Starting camera...");
+      await startCamera();
+      return;
+    }
     pressTimerRef.current = window.setTimeout(() => startVideoRecording(), 420);
   }
 
@@ -495,6 +657,11 @@ export default function App() {
 
   function takePhoto() {
     const video = feedRef.current;
+    if (!cameraLive || !isCameraReady()) {
+      setToast("Camera readying. Tap shutter again after the live view appears.");
+      startCamera();
+      return;
+    }
     const canvas = document.createElement("canvas");
     const width = video.videoWidth || 1080;
     const height = video.videoHeight || 1920;
@@ -502,41 +669,53 @@ export default function App() {
     canvas.height = height;
     const context = canvas.getContext("2d");
 
-    if (!video.videoWidth) {
-      const url = "/assets/hong-kong-camera-bg.png";
-      setCapturedMedia({ type: "photo", url, fit: "cover" });
-      clearSceneForProcessing("photo", url);
-      incrementMediaUsage("photo");
-      createMockScene("photo", url);
-      return;
-    }
-
     context.drawImage(video, 0, 0, width, height);
     canvas.toBlob((blob) => {
       const url = URL.createObjectURL(blob);
-      setCapturedMedia({ type: "photo", url, fit: "cover" });
+      setCapturedMedia({ type: "photo", url, fit: "contain" });
       clearSceneForProcessing("photo", url, "capture.jpg");
       createSceneFromMedia("photo", blob, url, "capture.jpg");
     }, "image/jpeg", 0.86);
   }
 
+  async function changeCameraZoom(zoomLevel) {
+    if (zoomLevel === selectedZoom && cameraLive) return;
+    setSelectedZoom(zoomLevel);
+    if (!cameraLive) return;
+    setToast("Switching lens...");
+    const zoomApplied = await applyCameraZoom(zoomLevel);
+    const nextDeviceId = backCameraForZoom(zoomLevel) || selectedCameraId;
+    if (!zoomApplied || (nextDeviceId && nextDeviceId !== selectedCameraId)) {
+      setSelectedCameraId(nextDeviceId);
+      await startCamera(nextDeviceId, zoomLevel);
+    }
+  }
+
   function startVideoRecording() {
     pressTimerRef.current = null;
     const stream = streamRef.current;
+    if (!cameraLive || !isCameraReady()) {
+      setToast("Camera readying. Hold shutter again after the live view appears.");
+      startCamera();
+      return;
+    }
     if (!stream || !window.MediaRecorder) {
       setToast("Video recording unavailable. Try Upload.");
       return;
     }
     if (!canUseMediaGeneration("video")) return;
     recordChunksRef.current = [];
+    recordVideoFramesRef.current = [];
     setRecordingVideo(true);
-    const recorder = new MediaRecorder(stream);
+    const recorder = new MediaRecorder(stream, preferredVideoRecorderOptions());
     mediaRecorderRef.current = recorder;
     recorder.addEventListener("dataavailable", (event) => {
       if (event.data.size) recordChunksRef.current.push(event.data);
     });
     recorder.addEventListener("stop", finishVideoRecording);
-    recorder.start();
+    recorder.start(250);
+    captureRecordingFrame();
+    recordFrameTimerRef.current = window.setInterval(captureRecordingFrame, 1100);
 
     const started = Date.now();
     recordTimerRef.current = window.setInterval(() => {
@@ -546,19 +725,79 @@ export default function App() {
     }, 80);
   }
 
+  function isCameraReady() {
+    const video = feedRef.current;
+    return Boolean(cameraReady && streamRef.current?.active && video?.srcObject && video.videoWidth && video.videoHeight);
+  }
+
+  function markCameraReady() {
+    const video = feedRef.current;
+    if (!video?.videoWidth || !video?.videoHeight) return;
+    setCameraReady(true);
+  }
+
   function stopVideoRecording() {
+    const recorder = mediaRecorderRef.current;
+    if (!recorder || recorder.state === "inactive") return;
     setRecordingVideo(false);
     setRecordProgress(0);
+    setToast("Finishing video...");
     window.clearInterval(recordTimerRef.current);
-    if (mediaRecorderRef.current?.state !== "inactive") mediaRecorderRef.current.stop();
+    window.clearInterval(recordFrameTimerRef.current);
+    recorder.stop();
   }
 
   function finishVideoRecording() {
-    const blob = new Blob(recordChunksRef.current, { type: "video/webm" });
+    window.clearInterval(recordFrameTimerRef.current);
+    const mimeType = mediaRecorderRef.current?.mimeType || "video/webm";
+    const blob = new Blob(recordChunksRef.current, { type: mimeType });
+    if (!blob.size) {
+      setToast("Video recording was empty. Please try again.");
+      return;
+    }
     const url = URL.createObjectURL(blob);
-    setCapturedMedia({ type: "video", url, fit: "contain" });
-    clearSceneForProcessing("video", url, "capture.webm");
-    createSceneFromMedia("video", blob, url, "capture.webm");
+    const extension = mimeType.includes("mp4") ? "mp4" : mimeType.includes("quicktime") ? "mov" : "webm";
+    const posterUrl = videoFramePosterUrl(recordVideoFramesRef.current);
+    setVideoPreviewFailed(false);
+    setCapturedMedia({ type: "video", url, fit: "contain", posterUrl });
+    clearSceneForProcessing("video", url, `capture.${extension}`);
+    createSceneFromMedia("video", blob, url, `capture.${extension}`, {
+      videoFrames: recordVideoFramesRef.current,
+      posterUrl,
+    });
+  }
+
+  function preferredVideoRecorderOptions() {
+    const candidates = ["video/mp4;codecs=avc1.42E01E", "video/mp4", "video/webm;codecs=vp8", "video/webm;codecs=vp9", "video/webm"];
+    const mimeType = candidates.find((candidate) => window.MediaRecorder?.isTypeSupported?.(candidate));
+    return {
+      ...(mimeType ? { mimeType } : {}),
+      videoBitsPerSecond: 450_000,
+    };
+  }
+
+  function videoFramePosterUrl(frames = []) {
+    const frame = frames.find((item) => item?.blob);
+    return frame ? URL.createObjectURL(frame.blob) : "";
+  }
+
+  async function captureRecordingFrame() {
+    if (recordVideoFramesRef.current.length >= VIDEO_FRAME_COUNT) return;
+    const frame = await captureVideoFrameFromFeed(`video-frame-${recordVideoFramesRef.current.length + 1}.jpg`);
+    if (frame) recordVideoFramesRef.current = [...recordVideoFramesRef.current, frame];
+  }
+
+  function captureVideoFrameFromFeed(fileName) {
+    const video = feedRef.current;
+    if (!video?.videoWidth || !video?.videoHeight) return Promise.resolve(null);
+    const scale = Math.min(1, VIDEO_FRAME_MAX_EDGE / Math.max(video.videoWidth, video.videoHeight));
+    const width = Math.max(1, Math.round(video.videoWidth * scale));
+    const height = Math.max(1, Math.round(video.videoHeight * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    canvas.getContext("2d").drawImage(video, 0, 0, width, height);
+    return canvasToJpegBlob(canvas, VIDEO_FRAME_JPEG_QUALITY).then((blob) => (blob ? { blob, fileName } : null));
   }
 
   async function createSceneFromMedia(type, mediaBlob, mediaUrl, fileName = "", options = {}) {
@@ -566,13 +805,13 @@ export default function App() {
       if (!canUseMediaGeneration(type, options.usageOverride)) return;
       incrementMediaUsage(type, options.usageOverride);
     }
-    await processSceneFromMedia(type, mediaBlob, mediaUrl, fileName);
+    await processSceneFromMedia(type, mediaBlob, mediaUrl, fileName, options);
   }
 
-  async function processSceneFromMedia(type, mediaBlob, mediaUrl, fileName = "") {
+  async function processSceneFromMedia(type, mediaBlob, mediaUrl, fileName = "", options = {}) {
     let aiMediaBlob = mediaBlob;
     let aiFileName = fileName;
-    let videoFrames = [];
+    let videoFrames = Array.isArray(options.videoFrames) ? options.videoFrames.filter(Boolean) : [];
 
     if (type === "photo" && !fileName.endsWith("-ai.jpg")) {
       try {
@@ -584,7 +823,7 @@ export default function App() {
       }
     }
 
-    if (type === "video") {
+    if (type === "video" && !videoFrames.length) {
       try {
         setToast("Sampling video key frames...");
         videoFrames = await sampleVideoFramesForAI(mediaBlob);
@@ -597,13 +836,24 @@ export default function App() {
     setCurrentMediaBlob({ type, mediaBlob: aiMediaBlob, mediaUrl, fileName: aiFileName });
     try {
       setProcessing(true);
-      const scene = await createScene({ type, mediaBlob: aiMediaBlob, fileName: aiFileName, detailLevel, videoFrames });
+      const identity = options.identityOverride || {};
+      const scene = await createScene({
+        type,
+        mediaBlob: aiMediaBlob,
+        fileName: aiFileName,
+        detailLevel,
+        videoFrames,
+        trialEmail: identity.email || trialEmail,
+        trialUserId: identity.userId || trialUserId,
+      });
       if (scene.processingProfile) {
         console.table(profileStepsWithModels(scene.processingProfile, type));
         console.info("CantonScene processing profile", scene.processingProfile);
       }
-      const nextScene = { ...scene, mediaUrl: scene.mediaUrl || mediaUrl, fileName, previewUrl: mediaUrl, attempts: [] };
-      setCapturedMedia({ type, url: mediaUrl, fit: type === "photo" || type === "video" ? "contain" : "cover" });
+      const posterUrl = options.posterUrl || "";
+      const nextScene = { ...scene, mediaUrl: scene.mediaUrl || mediaUrl, fileName, previewUrl: mediaUrl, posterUrl, attempts: [] };
+      setVideoPreviewFailed(false);
+      setCapturedMedia({ type, url: mediaUrl, fit: type === "photo" || type === "video" ? "contain" : "cover", posterUrl });
       setCurrentMediaBlob({ type, mediaBlob: aiMediaBlob, mediaUrl, fileName: aiFileName });
       if (type === "video") trackTemporaryVideoMedia(nextScene);
       setActiveScene(nextScene);
@@ -614,15 +864,19 @@ export default function App() {
     } catch (error) {
       console.warn(error);
       if (type === "video") {
-        setToast("Video analysis failed. Please try again.");
+        setToast(isPayloadTooLargeError(error) ? "Video clip is too large. Try a shorter hold." : "Video analysis failed. Please try again.");
         createFailedVideoScene(mediaUrl, fileName);
       } else {
-        setToast("Backend unavailable. Using demo scene.");
+        setToast("Photo analysis failed. Please try again.");
         createMockScene(type, mediaUrl, fileName);
       }
     } finally {
       setProcessing(false);
     }
+  }
+
+  function isPayloadTooLargeError(error) {
+    return String(error?.message || error).includes("413");
   }
 
   function createFailedVideoScene(mediaUrl, fileName = "") {
@@ -657,7 +911,7 @@ export default function App() {
       englishSummary: type === "video" ? "A person is buying fruit at a street stall." : dailyDemoScene.englishSummary,
       cantoneseSummary: type === "video" ? "有個人喺街邊檔買緊生果。" : dailyDemoScene.cantoneseSummary,
       jyutpingSummary: type === "video" ? "jau5 go3 jan4 hai2 gaai1 bin1 dong3 maai5 gan2 sang1 gwo2." : dailyDemoScene.jyutpingSummary,
-      objects: demoObjects,
+      objects: type === "photo" ? [] : demoObjects,
       attempts: [],
     };
     setCapturedMedia({ type, url: mediaUrl, fit: type === "photo" && fileName ? "contain" : "cover" });
@@ -678,12 +932,12 @@ export default function App() {
         scene
           ? {
               ...scene,
-              objects: (scene.isDemo ? dailyDemoScene.objects : scene.objects?.length ? scene.objects : mockObjects).slice(
+              objects: (scene.isDemo ? dailyDemoScene.objects : scene.objects || []).slice(
                 0,
                 Math.max(
                   1,
                   Math.min(
-                    (scene.isDemo ? dailyDemoScene.objects.length : scene.objects?.length) || mockObjects.length,
+                    (scene.isDemo ? dailyDemoScene.objects.length : scene.objects?.length) || 0,
                     nextDetail,
                   ),
                 ),
@@ -977,7 +1231,7 @@ export default function App() {
       return;
     }
     if (!isDeveloperUnlimited() && savedScenes.length >= WEB_TRIAL_SAVE_LIMIT) {
-      setToast(TRIAL_LIMIT_MESSAGE);
+      setToast(TRIAL_SAVE_LIMIT_MESSAGE);
       return;
     }
     setSavedScenes((scenes) => {
@@ -987,9 +1241,13 @@ export default function App() {
     setToast("Saved for practice");
   }
 
-  function setTrialIdentity(email) {
+  function setTrialIdentity(identity) {
+    const email = typeof identity === "string" ? identity : identity?.email || "";
+    const userId = typeof identity === "string" ? "" : identity?.userId || "";
     persistTrialEmail(email);
+    persistTrialUserId(userId);
     setTrialEmail(email);
+    setTrialUserId(userId);
     const scenesForEmail = loadSavedScenes(email);
     const usageForEmail = loadTrialUsage(email);
     setTrialUsage(usageForEmail);
@@ -1001,7 +1259,7 @@ export default function App() {
         setToast("Removed from Saved");
       } else if (!isDeveloperUnlimited(email) && scenesForEmail.length >= WEB_TRIAL_SAVE_LIMIT) {
         setSavedScenes(scenesForEmail);
-        setToast(TRIAL_LIMIT_MESSAGE);
+        setToast(TRIAL_SAVE_LIMIT_MESSAGE);
       } else {
         untrackTemporaryVideoMedia(activeScene);
         setSavedScenes([activeScene, ...scenesForEmail]);
@@ -1010,28 +1268,42 @@ export default function App() {
     } else {
       setSavedScenes(scenesForEmail);
       if (pendingIdentityAction === "camera" && isMediaLimitReached("photo", usageForEmail) && isMediaLimitReached("video", usageForEmail)) {
-        setToast(TRIAL_LIMIT_MESSAGE);
+        setToast(TRIAL_MEDIA_LIMIT_MESSAGE);
       } else if (pendingIdentityAction === "upload" && pendingUploadRef.current) {
         const pending = pendingUploadRef.current;
         if (isMediaLimitReached(pending.type, usageForEmail)) {
           pendingUploadRef.current = null;
-          setToast(TRIAL_LIMIT_MESSAGE);
+          setToast(TRIAL_MEDIA_LIMIT_MESSAGE);
         } else {
           pendingUploadRef.current = null;
           setCapturedMedia({ type: pending.type, url: pending.url, fit: pending.type === "photo" || pending.type === "video" ? "contain" : "cover" });
           clearSceneForProcessing(pending.type, pending.url, pending.fileName);
           setToast(pending.type === "video" ? "Preparing video..." : "Preparing photo...");
-          createSceneFromMedia(pending.type, pending.file, pending.url, pending.fileName, { usageOverride: usageForEmail });
+          createSceneFromMedia(pending.type, pending.file, pending.url, pending.fileName, { usageOverride: usageForEmail, identityOverride: { email, userId } });
         }
       } else if (pendingIdentityAction === "camera") {
         setToast("Email saved. Tap or hold shutter again.");
       } else if (!isDeveloperUnlimited(email) && scenesForEmail.length >= WEB_TRIAL_SAVE_LIMIT) {
-        setToast(TRIAL_LIMIT_MESSAGE);
+        setToast(TRIAL_SAVE_LIMIT_MESSAGE);
       } else {
         setToast(`Trial library ready for ${email}`);
       }
     }
     setPendingIdentityAction(null);
+  }
+
+  function readSupabaseAuthReturn() {
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const search = new URLSearchParams(window.location.search);
+    const accessToken = hash.get("access_token") || search.get("access_token") || "";
+    const tokenHash = search.get("token_hash") || hash.get("token_hash") || "";
+    const type = search.get("type") || hash.get("type") || "";
+    if (!accessToken && !tokenHash) return null;
+    return { accessToken, tokenHash, type };
+  }
+
+  function clearSupabaseAuthReturn() {
+    window.history.replaceState({}, document.title, window.location.pathname);
   }
 
   function isMediaLimitReached(type, usageOverride = null) {
@@ -1046,7 +1318,7 @@ export default function App() {
 
   function canUseMediaGeneration(type, usageOverride = null) {
     if (isMediaLimitReached(type, usageOverride)) {
-      setToast(TRIAL_LIMIT_MESSAGE);
+      setToast(TRIAL_MEDIA_LIMIT_MESSAGE);
       return false;
     }
     return true;
@@ -1070,7 +1342,8 @@ export default function App() {
   function restoreScene(scene) {
     setActiveScene(scene);
     const displayUrl = scene.previewUrl?.startsWith("blob:") ? scene.previewUrl : scene.mediaUrl;
-    setCapturedMedia({ type: scene.type, url: displayUrl, fit: scene.type === "photo" || scene.type === "video" ? "contain" : "cover" });
+    setVideoPreviewFailed(false);
+    setCapturedMedia({ type: scene.type, url: displayUrl, fit: scene.type === "photo" || scene.type === "video" ? "contain" : "cover", posterUrl: scene.posterUrl || "" });
     setSelectedObjectId(null);
     setSavedOpen(false);
     setSceneSheetOpen(false);
@@ -1099,11 +1372,19 @@ export default function App() {
 
   return (
     <main className="app-shell">
-      <section className={`phone-app ${capturedMedia?.type === "video" ? "video-mode" : ""}`} aria-label="CantonScene MVP" ref={phoneRef}>
-        <video className="camera-feed" ref={feedRef} playsInline muted />
+      <section
+        className={`phone-app ${capturedMedia?.type === "video" ? "video-mode" : ""} ${cameraLive ? "camera-live" : ""}`}
+        aria-label="CantonScene MVP"
+        ref={phoneRef}
+      >
+        <video className="camera-feed" ref={feedRef} playsInline muted onLoadedMetadata={markCameraReady} onCanPlay={markCameraReady} />
         {capturedMedia?.type === "photo" && capturedMedia.fit === "contain" ? <img className="captured-media-backdrop" src={capturedMedia.url} alt="" /> : null}
         {capturedMedia?.type === "video" && capturedMedia.fit === "contain" ? (
-          <video className="captured-media-backdrop" src={capturedMedia.url} muted playsInline preload="metadata" />
+          capturedMedia.posterUrl ? (
+            <img className="captured-media-backdrop" src={capturedMedia.posterUrl} alt="" />
+          ) : (
+            <video className="captured-media-backdrop" src={capturedMedia.url} muted playsInline preload="metadata" />
+          )
         ) : null}
         {capturedMedia?.type === "photo" ? (
           <img
@@ -1115,19 +1396,27 @@ export default function App() {
           />
         ) : null}
         {capturedMedia?.type === "video" ? (
-          <video
-            className={`captured-video visible ${capturedMedia.fit === "contain" ? "fit-contain" : "fit-cover"}`}
-            src={capturedMedia.url}
-            playsInline
-            controls
-            preload="metadata"
-          />
+          <>
+            {capturedMedia.posterUrl && videoPreviewFailed ? (
+              <img className={`captured-video-poster visible ${capturedMedia.fit === "contain" ? "fit-contain" : "fit-cover"}`} src={capturedMedia.posterUrl} alt="" />
+            ) : null}
+            <video
+              className={`captured-video visible ${capturedMedia.fit === "contain" ? "fit-contain" : "fit-cover"} ${videoPreviewFailed ? "is-hidden" : ""}`}
+              src={capturedMedia.url}
+              poster={capturedMedia.posterUrl || undefined}
+              playsInline
+              controls
+              preload="metadata"
+              onError={() => setVideoPreviewFailed(true)}
+              onLoadedData={() => setVideoPreviewFailed(false)}
+            />
+          </>
         ) : null}
         <div className="camera-fallback" />
         <div className="camera-scrim" />
 
         <header className="app-status">
-          <span>9:41</span>
+          <span>{statusTime}</span>
           <strong>CantonScene</strong>
           <span>5G</span>
         </header>
@@ -1146,6 +1435,27 @@ export default function App() {
             </button>
           </div>
         </section>
+
+        {cameraLive ? (
+          <div className="lens-picker" role="radiogroup" aria-label="Choose rear camera zoom">
+            {CAMERA_ZOOM_LEVELS.map((zoomLevel) => {
+              const active = zoomLevel === selectedZoom;
+              return (
+                <button
+                  key={zoomLevel}
+                  className={active ? "active" : ""}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  aria-label={`Use ${zoomLabel(zoomLevel)} rear lens`}
+                  onClick={() => changeCameraZoom(zoomLevel)}
+                >
+                  {zoomLabel(zoomLevel)}
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
 
         <LanguageTabs language={language} onChange={setLanguage} />
 
@@ -1252,6 +1562,7 @@ export default function App() {
         {trialSheetOpen ? (
           <TrialIdentitySheet
             reason={pendingIdentityAction === "camera" ? "camera" : pendingIdentityAction === "upload" ? "upload" : "save"}
+            bypassEmails={DEV_UNLIMITED_EMAILS}
             onSubmit={setTrialIdentity}
             onClose={() => {
               setTrialSheetOpen(false);

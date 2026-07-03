@@ -1,5 +1,4 @@
 const monthlyDemoPack = "2026-06";
-const previewSceneIndex = 3;
 
 const cardPositions = [
   { x: 8, y: 46 },
@@ -451,7 +450,6 @@ function dateKey(date = new Date()) {
 }
 
 function sceneIndexForDate(date = new Date()) {
-  if (Number.isInteger(previewSceneIndex)) return previewSceneIndex;
   const day = Number(dateParts(date).day || 1);
   return (day - 1) % sceneSeeds.length;
 }

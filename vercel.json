@@ -2,7 +2,7 @@
   "buildCommand": "pnpm run build:web",
   "outputDirectory": "dist/web",
   "functions": {
-    "api/[...path].mjs": {
+    "api/**/*.mjs": {
       "maxDuration": 60
     }
   }

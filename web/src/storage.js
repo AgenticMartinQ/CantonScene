@@ -1,4 +1,5 @@
 const emailKey = "cantonscene.trialEmail";
+const userIdKey = "cantonscene.trialUserId";
 const temporaryVideoMediaKey = "cantonscene.temporaryVideoMedia";
 
 function scenesKey(email) {
@@ -19,6 +20,18 @@ export function loadTrialEmail() {
 
 export function persistTrialEmail(email) {
   sessionStorage.setItem(emailKey, email.toLowerCase());
+}
+
+export function loadTrialUserId() {
+  return sessionStorage.getItem(userIdKey) || "";
+}
+
+export function persistTrialUserId(userId = "") {
+  if (userId) {
+    sessionStorage.setItem(userIdKey, userId);
+  } else {
+    sessionStorage.removeItem(userIdKey);
+  }
 }
 
 export function loadTrialUsage(email = "") {
