@@ -1725,21 +1725,16 @@ export default function App() {
           onSettings={() => {
             stopCameraStream();
             setSavedOpen(false);
-            if (adminUser) {
-              setVocabularyOpen(false);
-              setCostOpen(true);
-            } else {
-              if (!trialEmail && !trialUserId) {
-                setPendingIdentityAction("vocabulary");
-                setTrialSheetOpen(true);
-                return;
-              }
-              setCostOpen(false);
-              setVocabularyOpen(true);
+            if (!trialEmail && !trialUserId) {
+              setPendingIdentityAction("vocabulary");
+              setTrialSheetOpen(true);
+              return;
             }
+            setCostOpen(false);
+            setVocabularyOpen(true);
           }}
-          settingsIcon={adminUser ? "⚙" : "字"}
-          settingsLabel={adminUser ? "Open AI cost dashboard" : "Open vocabulary"}
+          settingsIcon="字"
+          settingsLabel="Open vocabulary"
         />
 
         <ShutterControls
@@ -1825,7 +1820,12 @@ export default function App() {
           <VocabularySheet
             items={vocabularyItems}
             trialEmail={trialEmail}
+            showAdminCost={adminUser}
             onClose={() => setVocabularyOpen(false)}
+            onOpenCost={() => {
+              setVocabularyOpen(false);
+              setCostOpen(true);
+            }}
             onPlay={playVocabularyItem}
             onPractice={practiceVocabularyItem}
             onDelete={deleteVocabularyItem}

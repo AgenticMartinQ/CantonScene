@@ -13,7 +13,7 @@ function itemMatchesFilter(item, filter) {
   return item.sourceType === filter;
 }
 
-export default function VocabularySheet({ items, trialEmail, onClose, onPlay, onPractice, onDelete }) {
+export default function VocabularySheet({ items, trialEmail, showAdminCost = false, onClose, onOpenCost, onPlay, onPractice, onDelete }) {
   const [filter, setFilter] = useState("all");
   const [query, setQuery] = useState("");
   const filteredItems = useMemo(() => {
@@ -33,9 +33,16 @@ export default function VocabularySheet({ items, trialEmail, onClose, onPlay, on
           <strong>Vocabulary</strong>
           <em>{trialEmail}</em>
         </div>
-        <button className="saved-close" aria-label="Close vocabulary" onClick={onClose}>
-          ×
-        </button>
+        <div className="vocabulary-header-actions">
+          {showAdminCost ? (
+            <button className="vocabulary-admin-cost" onClick={onOpenCost}>
+              AI cost
+            </button>
+          ) : null}
+          <button className="saved-close" aria-label="Close vocabulary" onClick={onClose}>
+            ×
+          </button>
+        </div>
       </header>
 
       <label className="vocabulary-search">
