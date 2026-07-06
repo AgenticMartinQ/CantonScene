@@ -37,6 +37,28 @@ const VIDEO_FRAME_COUNT = 5;
 const VIDEO_FRAME_MAX_EDGE = 448;
 const VIDEO_FRAME_JPEG_QUALITY = 0.58;
 const CAMERA_ZOOM_LEVELS = [0.5, 1, 4];
+const processingCopy = {
+  upload: {
+    title: "Uploading...",
+    photo: "Sending the photo for analysis.",
+    video: "Sending the video clip and sampled frames.",
+  },
+  objects: {
+    title: "Finding objects...",
+    photo: "Looking for useful learning cards in the photo.",
+    video: "Reading the key frames for the main scene.",
+  },
+  cantonese: {
+    title: "Writing Cantonese...",
+    photo: "Creating natural Hong Kong Cantonese and Jyutping.",
+    video: "Writing a natural Cantonese scene narration.",
+  },
+  audio: {
+    title: "Preparing audio...",
+    photo: "Preparing the scene.",
+    video: "Generating Cantonese narration audio.",
+  },
+};
 const clockFormatter = new Intl.DateTimeFormat(undefined, {
   hour: "numeric",
   minute: "2-digit",
@@ -60,6 +82,7 @@ export default function App() {
   const nativeAudioRef = useRef(null);
   const nativeTargetRef = useRef("");
   const authReturnHandledRef = useRef(false);
+  const processingTimersRef = useRef([]);
 
   const [language, setLanguage] = useState("both");
   const [statusTime, setStatusTime] = useState(() => clockFormatter.format(new Date()));
@@ -73,6 +96,7 @@ export default function App() {
   const [trialUsage, setTrialUsage] = useState(() => loadTrialUsage(loadTrialEmail()));
   const [capturedMedia, setCapturedMedia] = useState(() => ({ type: "photo", url: getDailyDemoScene().mediaUrl, fit: "cover" }));
   const [processing, setProcessing] = useState(false);
+  const [processingStage, setProcessingStage] = useState("upload");
   const [toast, setToast] = useState("");
   const [savedOpen, setSavedOpen] = useState(false);
   const [costOpen, setCostOpen] = useState(false);
@@ -255,6 +279,8 @@ export default function App() {
   useEffect(() => {
     stopNativePlayback();
   }, [activeScene?.id, selectedObjectId]);
+
+  useEffect(() => () => clearProcessingTimers(), []);
 
   useEffect(() => {
     updatePhotoFrame();
@@ -837,8 +863,9 @@ export default function App() {
     setCurrentMediaBlob({ type, mediaBlob: aiMediaBlob, mediaUrl, fileName: aiFileName });
     try {
       setProcessing(true);
+      startProcessingStages(type);
       const identity = options.identityOverride || {};
-      setToast(type === "video" ? "Finding the video scene..." : "Finding photo objects...");
+      setToast("Uploading...");
       const scene = await createScene({
         type,
         mediaBlob: aiMediaBlob,
@@ -876,13 +903,31 @@ export default function App() {
         createMockScene(type, mediaUrl, fileName);
       }
     } finally {
+      clearProcessingTimers();
       setProcessing(false);
     }
+  }
+
+  function clearProcessingTimers() {
+    processingTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+    processingTimersRef.current = [];
+  }
+
+  function startProcessingStages(type) {
+    clearProcessingTimers();
+    setProcessingStage("upload");
+    const stages = [
+      [900, "objects"],
+      [3800, "cantonese"],
+    ];
+    if (type === "video") stages.push([7000, "audio"]);
+    processingTimersRef.current = stages.map(([delay, stage]) => window.setTimeout(() => setProcessingStage(stage), delay));
   }
 
   async function hydrateDeferredSceneAudio(sceneId) {
     if (!sceneId) return;
     try {
+      setToast("Preparing audio...");
       const audio = await generateSceneAudio(sceneId);
       setActiveScene((scene) => {
         if (!scene || scene.id !== sceneId) return scene;
@@ -1561,11 +1606,9 @@ export default function App() {
         {processing ? (
           <section className="processing-panel">
             <div className="spinner" />
-            <strong>Reading the scene...</strong>
+            <strong>{processingCopy[processingStage]?.title || "Reading the scene..."}</strong>
             <span>
-              {activeScene?.type === "video"
-                ? "Analyzing video contents and generating narrations ..."
-                : "Detecting objects and preparing English-first learning cards."}
+              {processingCopy[processingStage]?.[currentMediaBlob?.type || "photo"] || "Preparing the scene."}
             </span>
           </section>
         ) : null}
