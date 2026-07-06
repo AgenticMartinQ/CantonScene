@@ -143,7 +143,7 @@ export default function App() {
 
   useEffect(() => {
     return () => {
-      streamRef.current?.getTracks().forEach((track) => track.stop());
+      stopCameraStream({ updateState: false });
     };
   }, []);
 
@@ -579,7 +579,7 @@ export default function App() {
 
     setCameraStarting(true);
     try {
-      streamRef.current?.getTracks().forEach((track) => track.stop());
+      stopCameraStream();
       const videoConstraints = {
         width: { ideal: 720 },
         height: { ideal: 1280 },
@@ -613,6 +613,18 @@ export default function App() {
     } finally {
       setCameraStarting(false);
     }
+  }
+
+  function stopCameraStream({ updateState = true } = {}) {
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+    if (feedRef.current) {
+      feedRef.current.pause();
+      feedRef.current.srcObject = null;
+      feedRef.current.removeAttribute("src");
+      feedRef.current.load();
+    }
+    if (updateState) setCameraReady(false);
   }
 
   async function handleUpload(event) {
@@ -651,6 +663,7 @@ export default function App() {
       return;
     }
     setCapturedMedia({ type, url, fit: type === "photo" || type === "video" ? "contain" : "cover" });
+    stopCameraStream();
     clearSceneForProcessing(type, url, aiFileName);
     setToast(type === "video" ? "Preparing video..." : "Preparing photo...");
     createSceneFromMedia(type, aiMediaBlob, url, aiFileName);
@@ -702,6 +715,11 @@ export default function App() {
 
     context.drawImage(video, 0, 0, width, height);
     canvas.toBlob((blob) => {
+      stopCameraStream();
+      if (!blob) {
+        setToast("Photo capture failed. Please try again.");
+        return;
+      }
       const url = URL.createObjectURL(blob);
       setCapturedMedia({ type: "photo", url, fit: "contain" });
       clearSceneForProcessing("photo", url, "capture.jpg");
@@ -776,6 +794,7 @@ export default function App() {
     window.clearInterval(recordTimerRef.current);
     window.clearInterval(recordFrameTimerRef.current);
     recorder.stop();
+    stopCameraStream();
   }
 
   function finishVideoRecording() {
@@ -1424,6 +1443,7 @@ export default function App() {
   }
 
   function restoreScene(scene) {
+    stopCameraStream();
     setActiveScene(scene);
     const displayUrl = scene.previewUrl?.startsWith("blob:") ? scene.previewUrl : scene.mediaUrl;
     setVideoPreviewFailed(false);
@@ -1435,6 +1455,7 @@ export default function App() {
   }
 
   function restoreDailyDemoScene() {
+    stopCameraStream();
     setActiveScene(dailyDemoScene);
     setCapturedMedia({ type: "photo", url: dailyDemoScene.mediaUrl, fit: "cover" });
     setSelectedObjectId(null);
@@ -1576,6 +1597,7 @@ export default function App() {
           onFavorite={saveActiveScene}
           favoriteActive={activeSceneSaved}
           onSettings={() => {
+            stopCameraStream();
             setSavedOpen(false);
             setCostOpen(true);
           }}
@@ -1594,17 +1616,24 @@ export default function App() {
         <BottomNav
           active={savedOpen ? "saved" : "camera"}
           onUpload={() => {
+            stopCameraStream();
             setSavedOpen(false);
             setCostOpen(false);
             setToast("Choose a photo or video.");
             uploadRef.current?.click();
           }}
-          onCamera={() => {
+          onCamera={async () => {
             setSavedOpen(false);
             setCostOpen(false);
-            setToast("Camera mode");
+            if (cameraLive) {
+              setToast("Camera live view ready");
+              return;
+            }
+            setToast(cameraStarting ? "Camera starting..." : "Starting camera...");
+            await startCamera();
           }}
           onSaved={() => {
+            stopCameraStream();
             if (!trialEmail) {
               setPendingIdentityAction("saved");
               setTrialSheetOpen(true);
