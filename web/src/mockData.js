@@ -39,9 +39,9 @@ const focusCantoneseBySlug = {
   "harbourfront-cycling-path": "單車徑",
 };
 
-const focusAudioUrlBySlug = {
-  "public-housing-courtyard": "/assets/audio/demo-objects/uk-cyun-housing-estate.mp3",
-};
+function demoAudioUrl(sceneSlug, fileName) {
+  return `/assets/audio/demo-scenes/${monthlyDemoPack}/${sceneSlug}/${fileName}.mp3`;
+}
 
 const sceneSeeds = [
   {
@@ -119,7 +119,7 @@ const sceneSeeds = [
     cantoneseSummary: "屋邨平台有晾緊嘅衫、行人通道同一座座大廈。",
     jyutpingSummary: "uk1 cyun1 ping4 toi4 jau5 long3 gan2 ge3 saam1, haang4 jan4 tung1 dou6 tung4 jat1 zo6 zo6 daai6 haa6.",
     cards: [
-      ["Housing estate", "屋邨", "uk1 cyun1", "A public residential estate.", { audioUrl: "/assets/audio/demo-objects/uk-cyun-housing-estate.mp3" }],
+      ["Housing estate", "屋邨", "uk1 cyun1", "A public residential estate."],
       ["Laundry", "衫", "saam1", "Clothes hanging out to dry."],
       ["Courtyard", "平台", "ping4 toi4", "An open shared area between buildings."],
     ],
@@ -458,17 +458,19 @@ function sceneIndexForDate(date = new Date()) {
   return (day - 1) % sceneSeeds.length;
 }
 
-function cardFromSeed(seed, index) {
+function cardFromSeed(seed, index, sceneSlug) {
   const [english, cantonese, jyutping, description, customPositionOrFields, customFields] = seed;
   const customPosition = customPositionOrFields?.x != null && customPositionOrFields?.y != null ? customPositionOrFields : null;
   const extraFields = customFields || (customPosition ? null : customPositionOrFields);
+  const id = english.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
   return {
-    id: english.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""),
+    id,
     english,
     cantonese,
     jyutping,
     description,
     ...(customPosition || cardPositions[index % cardPositions.length]),
+    audioUrl: demoAudioUrl(sceneSlug, id),
     ...(extraFields || {}),
   };
 }
@@ -477,9 +479,9 @@ export const dailyDemoScenes = sceneSeeds.map((scene, sceneIndex) => ({
   ...scene,
   id: `${monthlyDemoPack}-${scene.slug}`,
   focusCantonese: focusCantoneseBySlug[scene.slug] || "",
-  focusAudioUrl: focusAudioUrlBySlug[scene.slug] || "",
+  focusAudioUrl: demoAudioUrl(scene.slug, "focus"),
   mediaUrl: `/assets/demo-scenes/monthly/${scene.file}`,
-  objects: scene.cards.map(cardFromSeed),
+  objects: scene.cards.map((card, index) => cardFromSeed(card, index, scene.slug)),
   dayOfMonth: sceneIndex + 1,
 }));
 
