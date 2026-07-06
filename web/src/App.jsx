@@ -49,15 +49,19 @@ const processingCopy = {
     video: "Reading the key frames for the main scene.",
   },
   cantonese: {
-    title: "Writing Cantonese...",
+    title: "Generating Cantonese pronunciations...",
     photo: "Creating natural Hong Kong Cantonese and Jyutping.",
-    video: "Writing a natural Cantonese scene narration.",
+    video: "Writing natural Cantonese narration and Jyutping.",
   },
   audio: {
     title: "Preparing audio...",
     photo: "Preparing the scene.",
     video: "Generating Cantonese narration audio.",
   },
+};
+const processingStageOrder = {
+  photo: ["upload", "objects", "cantonese"],
+  video: ["upload", "objects", "cantonese", "audio"],
 };
 const clockFormatter = new Intl.DateTimeFormat(undefined, {
   hour: "numeric",
@@ -924,6 +928,16 @@ export default function App() {
     processingTimersRef.current = stages.map(([delay, stage]) => window.setTimeout(() => setProcessingStage(stage), delay));
   }
 
+  function processingStepsFor(type = "photo") {
+    const stages = processingStageOrder[type === "video" ? "video" : "photo"];
+    const activeIndex = Math.max(0, stages.indexOf(processingStage));
+    return stages.map((stage, index) => ({
+      id: stage,
+      title: processingCopy[stage].title,
+      state: index < activeIndex ? "done" : index === activeIndex ? "active" : "pending",
+    }));
+  }
+
   async function hydrateDeferredSceneAudio(sceneId) {
     if (!sceneId) return;
     try {
@@ -1606,10 +1620,18 @@ export default function App() {
         {processing ? (
           <section className="processing-panel">
             <div className="spinner" />
-            <strong>{processingCopy[processingStage]?.title || "Reading the scene..."}</strong>
+            <strong>{processingCopy[processingStage]?.title || processingCopy.upload.title}</strong>
             <span>
               {processingCopy[processingStage]?.[currentMediaBlob?.type || "photo"] || "Preparing the scene."}
             </span>
+            <div className="processing-steps" aria-label="Processing steps">
+              {processingStepsFor(currentMediaBlob?.type).map((step) => (
+                <div className={`processing-step ${step.state}`} key={step.id}>
+                  <i />
+                  <b>{step.title}</b>
+                </div>
+              ))}
+            </div>
           </section>
         ) : null}
 

@@ -782,6 +782,51 @@ button {
   line-height: 1.4;
 }
 
+.processing-steps {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+  text-align: left;
+}
+
+.processing-step {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  min-height: 28px;
+  color: rgba(17, 24, 33, 0.46);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.processing-step i {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 2px solid rgba(17, 24, 33, 0.16);
+  background: rgba(255, 255, 255, 0.56);
+}
+
+.processing-step.active {
+  color: rgba(17, 24, 33, 0.9);
+}
+
+.processing-step.active i {
+  border-color: var(--green);
+  background: var(--green);
+  box-shadow: 0 0 0 5px rgba(47, 125, 74, 0.14);
+}
+
+.processing-step.done {
+  color: rgba(17, 24, 33, 0.68);
+}
+
+.processing-step.done i {
+  border-color: rgba(47, 125, 74, 0.58);
+  background: rgba(47, 125, 74, 0.18);
+}
+
 .scene-sheet {
   bottom: 174px;
   padding: 18px;
