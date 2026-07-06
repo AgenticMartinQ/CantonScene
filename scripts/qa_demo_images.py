@@ -23,10 +23,11 @@ WARN_SIDE_PANEL_SCORE = 115
 FAIL_SIDE_PANEL_SCORE = 165
 
 
-def referenced_images() -> list[str]:
+def referenced_images() -> tuple[list[str], int]:
     text = MOCK_DATA.read_text(encoding="utf-8")
     names = re.findall(r'file:\s*"([^"]+)"', text)
-    return sorted(set(names))
+    scene_count = len(re.findall(r'^\s+slug:\s*"[^"]+"', text, flags=re.MULTILINE))
+    return names, scene_count
 
 
 def detail_score(image: Image.Image) -> float:
@@ -92,7 +93,16 @@ def main() -> int:
     warnings: list[str] = []
     rows: list[dict[str, object]] = []
 
-    for name in referenced_images():
+    names, scene_count = referenced_images()
+    if not names:
+        failures.append("mockData.js: no demo image references found")
+    if scene_count and len(names) != scene_count:
+        failures.append(f"mockData.js: found {len(names)} image references for {scene_count} scenes")
+    duplicate_names = sorted({name for name in names if names.count(name) > 1})
+    for name in duplicate_names:
+        failures.append(f"{name}: referenced by more than one demo scene")
+
+    for name in sorted(set(names)):
         path = IMAGE_DIR / name
         if not path.exists():
             failures.append(f"{name}: missing referenced demo image")

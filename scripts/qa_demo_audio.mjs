@@ -5,18 +5,25 @@ import { dailyDemoScenes } from "../web/src/mockData.js";
 const minBytes = 1000;
 const failures = [];
 const seen = new Set();
+let expectedCount = 0;
 
 for (const scene of dailyDemoScenes) {
+  expectedCount += 1;
   checkAudio({
     label: `${scene.slug}: focus ${scene.focusCantonese || scene.focus}`,
     audioUrl: scene.focusAudioUrl,
   });
   for (const object of scene.objects) {
+    expectedCount += 1;
     checkAudio({
       label: `${scene.slug}: ${object.english} / ${object.cantonese}`,
       audioUrl: object.audioUrl,
     });
   }
+}
+
+if (seen.size !== expectedCount) {
+  failures.push(`expected ${expectedCount} unique demo audio files, found ${seen.size}`);
 }
 
 await Promise.all([...seen].map(validateAudioFile));
@@ -38,6 +45,7 @@ function checkAudio({ label, audioUrl }) {
     failures.push(`${label}: unexpected audioUrl ${audioUrl}`);
     return;
   }
+  if (seen.has(audioUrl)) failures.push(`${label}: duplicate audioUrl ${audioUrl}`);
   seen.add(audioUrl);
 }
 
