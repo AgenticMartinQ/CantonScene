@@ -1205,22 +1205,12 @@ export default function App() {
   async function playDailyFocusName() {
     const text = dailyDemoScene.focusCantonese || dailyDemoScene.focus;
     if (!text) return;
-    if (!window.speechSynthesis) {
-      setToast("Cantonese voice is not available in this browser.");
-      return;
-    }
-    const voices = await loadSpeechVoices();
-    const cantoneseVoice = findCantoneseVoice(voices);
-    if (!cantoneseVoice) {
-      setToast("Cantonese voice is not available in this browser.");
-      return;
-    }
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.voice = cantoneseVoice;
-    utterance.lang = "zh-HK";
-    utterance.rate = 0.82;
-    window.speechSynthesis.speak(utterance);
+    await playCantoneseAudio({
+      text,
+      audioUrl: dailyDemoScene.focusAudioUrl || "",
+      targetPrefix: `daily-focus:${dailyDemoScene.slug || dailyDemoScene.id}`,
+      emptyMessage: "Cantonese voice is not available in this browser.",
+    });
   }
 
   async function recordRepeat() {
