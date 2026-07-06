@@ -593,12 +593,12 @@ export default function App() {
       streamRef.current = stream;
       if (!feedRef.current) return false;
       feedRef.current.srcObject = stream;
-      setCapturedMedia(null);
       await feedRef.current.play();
       await refreshCameraDevices(stream);
       await applyCameraZoom(zoomLevel);
       const ready = Boolean(feedRef.current.videoWidth);
       setCameraReady(ready);
+      if (ready) setCapturedMedia(null);
       return true;
     } catch (error) {
       if (deviceId) {
@@ -715,13 +715,14 @@ export default function App() {
 
     context.drawImage(video, 0, 0, width, height);
     canvas.toBlob((blob) => {
-      stopCameraStream();
       if (!blob) {
+        stopCameraStream();
         setToast("Photo capture failed. Please try again.");
         return;
       }
       const url = URL.createObjectURL(blob);
       setCapturedMedia({ type: "photo", url, fit: "contain" });
+      stopCameraStream();
       clearSceneForProcessing("photo", url, "capture.jpg");
       createSceneFromMedia("photo", blob, url, "capture.jpg");
     }, "image/jpeg", 0.86);
@@ -794,7 +795,6 @@ export default function App() {
     window.clearInterval(recordTimerRef.current);
     window.clearInterval(recordFrameTimerRef.current);
     recorder.stop();
-    stopCameraStream();
   }
 
   function finishVideoRecording() {
@@ -810,6 +810,7 @@ export default function App() {
     const posterUrl = videoFramePosterUrl(recordVideoFramesRef.current);
     setVideoPreviewFailed(false);
     setCapturedMedia({ type: "video", url, fit: "contain", posterUrl });
+    stopCameraStream();
     clearSceneForProcessing("video", url, `capture.${extension}`);
     createSceneFromMedia("video", blob, url, `capture.${extension}`, {
       videoFrames: recordVideoFramesRef.current,

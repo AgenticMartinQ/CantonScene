@@ -173,8 +173,7 @@ button {
 
 .camera-fallback {
   z-index: 0;
-  background: url("/assets/hong-kong-camera-bg.png") center / cover;
-  transform: scale(1.08);
+  background: linear-gradient(155deg, #20242b, #050608 58%, #2c3139);
 }
 
 .camera-live .camera-feed {
