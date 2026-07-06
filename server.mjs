@@ -62,6 +62,10 @@ export async function handleNodeRequest(req, res) {
       return await handleCreateScene(req, res);
     }
 
+    if (req.url?.startsWith("/api/scenes/") && req.url.endsWith("/audio") && req.method === "POST") {
+      return await handleGenerateSceneAudio(req, res);
+    }
+
     if (req.url === "/api/temporary-media/cleanup" && req.method === "POST") {
       return await handleTemporaryMediaCleanup(req, res);
     }
@@ -188,14 +192,22 @@ async function handleCreateScene(req, res) {
   }
   profiler.mark("insert_detected_objects");
 
-  const audio = await safelyGenerateSceneAudio({
-    scene,
-    mediaType,
-    objects: insertedObjects,
-    cantoneseSummary: localized.scene.cantonese,
-    mediaBytes: mediaBuffer.byteLength,
-  });
-  profiler.mark("openai_tts_audio");
+  const audio =
+    mediaType === "video"
+      ? {
+          audio_status: env.OPENAI_API_KEY ? "pending" : "skipped",
+          audio_error: env.OPENAI_API_KEY ? "" : "Missing OPENAI_API_KEY",
+          sceneAudioUrl: "",
+          objectAudioUrls: {},
+        }
+      : await safelyGenerateSceneAudio({
+          scene,
+          mediaType,
+          objects: insertedObjects,
+          cantoneseSummary: localized.scene.cantonese,
+          mediaBytes: mediaBuffer.byteLength,
+        });
+  profiler.mark(mediaType === "video" ? "defer_tts_audio" : "openai_tts_audio");
 
   await supabaseInsert("scene_descriptions", {
     learning_scene_id: scene.id,
@@ -240,6 +252,43 @@ async function handleCreateScene(req, res) {
       models: processingProfileModels(mediaType),
     },
   });
+}
+
+async function handleGenerateSceneAudio(req, res) {
+  requireEnv(["SUPABASE_URL"]);
+  if (!secretKey()) throw new Error("Missing SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY");
+  const match = new URL(req.url, `http://localhost:${port}`).pathname.match(/^\/api\/scenes\/([0-9a-f-]{36})\/audio$/i);
+  const sceneId = match?.[1] || "";
+  if (!sceneId) return sendJson(res, { error: "Invalid scene id" }, 400);
+
+  const existingAudioRows = await supabaseSelect(
+    "generated_audio",
+    "storage_path",
+    `learning_scene_id=eq.${encodeURIComponent(sceneId)}&detected_object_id=is.null&limit=1`,
+  );
+  if (existingAudioRows[0]?.storage_path) {
+    const cantoneseAudioUrl = await createSignedStorageUrl("generated-audio", existingAudioRows[0].storage_path, signedAudioUrlSeconds);
+    return sendJson(res, { audioStatus: "complete", audioError: "", cantoneseAudioUrl });
+  }
+
+  const [scene] = await supabaseSelect(
+    "learning_scenes",
+    "id,scene_type,cantonese_summary",
+    `id=eq.${encodeURIComponent(sceneId)}&limit=1`,
+  );
+  if (!scene) return sendJson(res, { error: "Scene not found" }, 404);
+  if (scene.scene_type !== "video") return sendJson(res, { audioStatus: "skipped", audioError: "", cantoneseAudioUrl: "" });
+  if (!scene.cantonese_summary) return sendJson(res, { audioStatus: "skipped", audioError: "Missing Cantonese summary", cantoneseAudioUrl: "" });
+
+  const cantoneseAudioUrl = await generateAndStoreTtsAudio({
+    sceneId,
+    text: scene.cantonese_summary,
+    storagePath: `anonymous/${sceneId}/scene-cantonese.mp3`,
+    taskType: "cantonese_tts_scene",
+    mediaType: "video",
+    mediaBytes: 0,
+  });
+  return sendJson(res, { audioStatus: "complete", audioError: "", cantoneseAudioUrl });
 }
 
 async function handleCostDashboard(req, res) {
@@ -498,8 +547,7 @@ function processingProfileModels(mediaType) {
   return {
     photo_object_detection: photoModel,
     video_understanding: videoModel,
-    cantonese_expression: env.OPENAI_TEXT_MODEL || "gpt-5",
-    cantonese_qa: env.OPENAI_TEXT_MODEL || "gpt-5",
+    cantonese_localization_qa: env.OPENAI_TEXT_MODEL || "gpt-5",
     cantonese_tts_scene: env.OPENAI_TTS_MODEL || "gpt-4o-mini-tts",
     cantonese_tts_object: env.OPENAI_TTS_MODEL || "gpt-4o-mini-tts",
     cantonese_tts_voice: env.OPENAI_TTS_VOICE || "alloy",
@@ -1138,7 +1186,7 @@ function videoFrameUnderstandingPrompt(frameCount) {
 
 async function localizeAndQaCantonese(analysis, context = {}) {
   const localized = await callOpenAiJson({
-    taskType: "cantonese_expression",
+    taskType: "cantonese_localization_qa",
     messages: [
       { role: "system", content: cantoneseLocalizationSystemPrompt() },
       { role: "user", content: JSON.stringify(localizationInput(analysis)) },
@@ -1146,16 +1194,7 @@ async function localizeAndQaCantonese(analysis, context = {}) {
     temperature: 0.2,
     mediaBytes: context.mediaBytes,
   });
-  const qaResult = await callOpenAiJson({
-    taskType: "cantonese_qa",
-    messages: [
-      { role: "system", content: cantoneseQaSystemPrompt() },
-      { role: "user", content: JSON.stringify(normalizeLocalizedResult(localized, analysis)) },
-    ],
-    temperature: 0.1,
-    mediaBytes: context.mediaBytes,
-  });
-  return normalizeLocalizedResult(qaResult, analysis);
+  return normalizeLocalizedResult(localized, analysis);
 }
 
 async function callOpenAiJson({ taskType, messages, temperature, mediaBytes }) {
@@ -1263,7 +1302,7 @@ function fallbackLocalization(analysis, meta = {}) {
 
 function cantoneseLocalizationSystemPrompt() {
   return [
-    "You are CantonScene's Hong Kong Cantonese localization specialist.",
+    "You are CantonScene's Hong Kong Cantonese localization specialist and QA reviewer.",
     "Input will contain English scene/object labels and descriptions. Convert them into authentic spoken Hong Kong Cantonese for adult foreign learners.",
     "Rules:",
     "- Use Traditional Chinese characters.",
@@ -1276,7 +1315,8 @@ function cantoneseLocalizationSystemPrompt() {
     "- Avoid slang that is too niche, vulgar, or age-specific.",
     "- Use Jyutping with tone numbers for every Cantonese label and sentence.",
     "- If an English term is a proper Hong Kong place/MTR/building name, keep the accepted local Cantonese name and Jyutping.",
-    'Return JSON only with this shape: {"scene":{"english":"...","cantonese":"...","jyutping":"..."},"objects":[{"stable_id":"...","english_label":"...","cantonese_label":"...","jyutping_label":"...","english_description":"...","cantonese_description":"...","jyutping_description":"..."}]}',
+    "Before returning, self-check that the Cantonese sounds natural, not Mandarin-like, and that Jyutping matches the Traditional Chinese.",
+    'Return JSON only with this shape: {"qa_status":"pass","qa_notes":[],"scene":{"english":"...","cantonese":"...","jyutping":"..."},"objects":[{"stable_id":"...","english_label":"...","cantonese_label":"...","jyutping_label":"...","english_description":"...","cantonese_description":"...","jyutping_description":"..."}]}',
   ].join("\n");
 }
 

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { cleanupTemporaryMedia, createScene, getEmailFromAuthSession, getSignedMediaUrl } from "./api.js";
+import { cleanupTemporaryMedia, createScene, generateSceneAudio, getEmailFromAuthSession, getSignedMediaUrl } from "./api.js";
 import { getDailyDemoScene } from "./mockData.js";
 import {
   clearTemporaryVideoMedia,
@@ -31,11 +31,11 @@ const WEB_TRIAL_MEDIA_LIMIT = 5;
 const TRIAL_SAVE_LIMIT_MESSAGE = "Web trial can save up to 3 scenes. Please register on mobile Apps version to continue.";
 const TRIAL_MEDIA_LIMIT_MESSAGE = "Web trial includes up to 5 photos and 5 videos. Please register on mobile Apps version to continue.";
 const DEV_UNLIMITED_EMAILS = new Set(["martinqiao.ai@gmail.com"]);
-const PHOTO_AI_MAX_EDGE = 1600;
-const PHOTO_AI_JPEG_QUALITY = 0.82;
-const VIDEO_FRAME_COUNT = 8;
-const VIDEO_FRAME_MAX_EDGE = 512;
-const VIDEO_FRAME_JPEG_QUALITY = 0.62;
+const PHOTO_AI_MAX_EDGE = 1280;
+const PHOTO_AI_JPEG_QUALITY = 0.78;
+const VIDEO_FRAME_COUNT = 5;
+const VIDEO_FRAME_MAX_EDGE = 448;
+const VIDEO_FRAME_JPEG_QUALITY = 0.58;
 const CAMERA_ZOOM_LEVELS = [0.5, 1, 4];
 const clockFormatter = new Intl.DateTimeFormat(undefined, {
   hour: "numeric",
@@ -335,8 +335,9 @@ export default function App() {
     const modelForStep = {
       scene_understanding: mediaType === "video" ? models.video_understanding : models.photo_object_detection,
       gemini_scene_understanding: mediaType === "video" ? models.video_understanding : models.photo_object_detection,
-      cantonese_localization_qa: `${models.cantonese_expression || ""} + ${models.cantonese_qa || ""}`.trim(),
+      cantonese_localization_qa: models.cantonese_localization_qa || "",
       openai_tts_audio: `${models.cantonese_tts_scene || ""} / ${models.cantonese_tts_object || ""}`.trim(),
+      defer_tts_audio: models.cantonese_tts_scene || "",
     };
     return (profile.steps || []).map((step) => ({
       ...step,
@@ -837,6 +838,7 @@ export default function App() {
     try {
       setProcessing(true);
       const identity = options.identityOverride || {};
+      setToast(type === "video" ? "Finding the video scene..." : "Finding photo objects...");
       const scene = await createScene({
         type,
         mediaBlob: aiMediaBlob,
@@ -860,7 +862,10 @@ export default function App() {
       setSelectedObjectId(null);
       setSceneSheetOpen(false);
       setLatestScore(null);
-      setToast(type === "video" ? "Video scene ready" : "Photo objects ready");
+      setToast(type === "video" ? "Video scene ready. Audio is preparing..." : "Photo objects ready");
+      if (type === "video" && scene.audioStatus === "pending") {
+        hydrateDeferredSceneAudio(scene.id);
+      }
     } catch (error) {
       console.warn(error);
       if (type === "video") {
@@ -872,6 +877,26 @@ export default function App() {
       }
     } finally {
       setProcessing(false);
+    }
+  }
+
+  async function hydrateDeferredSceneAudio(sceneId) {
+    if (!sceneId) return;
+    try {
+      const audio = await generateSceneAudio(sceneId);
+      setActiveScene((scene) => {
+        if (!scene || scene.id !== sceneId) return scene;
+        return {
+          ...scene,
+          cantoneseAudioUrl: audio.cantoneseAudioUrl || scene.cantoneseAudioUrl || "",
+          audioStatus: audio.audioStatus || scene.audioStatus,
+          audioError: audio.audioError || "",
+        };
+      });
+      if (audio.cantoneseAudioUrl) setToast("Video narration audio ready");
+    } catch (error) {
+      console.warn(error);
+      setActiveScene((scene) => (scene && scene.id === sceneId ? { ...scene, audioStatus: "failed", audioError: "Cantonese TTS generation failed." } : scene));
     }
   }
 
@@ -1388,6 +1413,7 @@ export default function App() {
         ) : null}
         {capturedMedia?.type === "photo" ? (
           <img
+            key={capturedMedia.url}
             className={`captured-media visible ${capturedMedia.fit === "contain" ? "fit-contain" : "fit-cover"}`}
             src={capturedMedia.url}
             alt=""

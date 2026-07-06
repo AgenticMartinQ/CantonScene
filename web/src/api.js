@@ -22,6 +22,19 @@ export async function createScene({ type, mediaBlob, fileName, detailLevel, vide
   return response.json();
 }
 
+export async function generateSceneAudio(sceneId) {
+  const response = await fetch(`/api/scenes/${encodeURIComponent(sceneId)}/audio`, {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Scene audio API failed: ${response.status} ${errorText}`);
+  }
+
+  return response.json();
+}
+
 export async function getSignedMediaUrl(storagePath) {
   const response = await fetch(`/api/media-url?path=${encodeURIComponent(storagePath)}`);
 
