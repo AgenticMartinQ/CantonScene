@@ -12,6 +12,9 @@ const outputPath = process.env.OPENAI_OUTPUT_PATH || "tmp/openai-samples/cantone
 const text =
   process.env.OPENAI_SAMPLE_TEXT ||
   "傳統茶餐廳入面，有個經典香港下午茶，一個新鮮出爐菠蘿包同一杯熱奶茶擺喺枱上面。";
+const instructions =
+  process.env.OPENAI_TTS_INSTRUCTIONS ||
+  "Read in natural Hong Kong Cantonese. Keep the tone friendly, clear, and local.";
 
 const response = await fetch("https://api.openai.com/v1/audio/speech", {
   method: "POST",
@@ -24,7 +27,7 @@ const response = await fetch("https://api.openai.com/v1/audio/speech", {
     voice,
     input: text,
     response_format: "mp3",
-    instructions: "Read in natural Hong Kong Cantonese. Keep the tone friendly, clear, and local.",
+    instructions,
   }),
 });
 
