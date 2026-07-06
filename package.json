@@ -7,7 +7,8 @@
     "dev:api": "node server.mjs",
     "dev:web": "vite --config web/vite.config.js",
     "build:web": "vite build --config web/vite.config.js",
-    "check": "node --check server.mjs && node --check app.js && vite build --config web/vite.config.js"
+    "qa:demo-images": "python3 scripts/qa_demo_images.py",
+    "check": "node --check server.mjs && node --check app.js && pnpm run qa:demo-images && vite build --config web/vite.config.js"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.1.1",
