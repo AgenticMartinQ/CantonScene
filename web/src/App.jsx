@@ -34,6 +34,9 @@ const WEB_TRIAL_MEDIA_LIMIT = 5;
 const TRIAL_SAVE_LIMIT_MESSAGE = "Web trial can save up to 3 scenes. Please register on mobile Apps version to continue.";
 const TRIAL_MEDIA_LIMIT_MESSAGE = "Web trial includes up to 5 photos and 5 videos. Please register on mobile Apps version to continue.";
 const DEV_UNLIMITED_EMAILS = new Set(["martinqiao.ai@gmail.com"]);
+const MIN_DETAIL_LEVEL = 1;
+const DEFAULT_DETAIL_LEVEL = 5;
+const MAX_DETAIL_LEVEL = 8;
 const PHOTO_AI_MAX_EDGE = 1280;
 const PHOTO_AI_JPEG_QUALITY = 0.78;
 const VIDEO_FRAME_COUNT = 5;
@@ -94,7 +97,7 @@ export default function App() {
 
   const [language, setLanguage] = useState("both");
   const [statusTime, setStatusTime] = useState(() => clockFormatter.format(new Date()));
-  const [detailLevel, setDetailLevel] = useState(3);
+  const [detailLevel, setDetailLevel] = useState(DEFAULT_DETAIL_LEVEL);
   const [dailyDemoScene, setDailyDemoScene] = useState(() => getDailyDemoScene());
   const [activeScene, setActiveScene] = useState(() => getDailyDemoScene());
   const [selectedObjectId, setSelectedObjectId] = useState(null);
@@ -1703,6 +1706,8 @@ export default function App() {
           collapsed={railCollapsed}
           showSlider={sliderOpen}
           detailLevel={detailLevel}
+          minDetailLevel={MIN_DETAIL_LEVEL}
+          maxDetailLevel={MAX_DETAIL_LEVEL}
           onToggleCollapsed={() => {
             setRailCollapsed((value) => !value);
             setSliderOpen(false);

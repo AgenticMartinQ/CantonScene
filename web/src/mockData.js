@@ -122,6 +122,11 @@ const sceneSeeds = [
       ["Housing estate", "屋邨", "uk1 cyun1", "A public residential estate."],
       ["Laundry", "衫", "saam1", "Clothes hanging out to dry."],
       ["Courtyard", "平台", "ping4 toi4", "An open shared area between buildings."],
+      ["Windows", "窗", "coeng1", "Windows on the residential tower.", { x: 70, y: 34 }],
+      ["Air conditioner", "冷氣機", "laang5 hei3 gei1", "An air-conditioning unit outside a flat.", { x: 82, y: 44 }],
+      ["Trees", "樹", "syu6", "Trees planted around the courtyard.", { x: 18, y: 65 }],
+      ["Covered walkway", "有蓋通道", "jau5 goi3 tung1 dou6", "A covered walkway below the estate blocks.", { x: 50, y: 78 }],
+      ["Bench", "長櫈", "coeng4 dang3", "A bench in the shared outdoor area.", { x: 20, y: 88 }],
     ],
   },
   {

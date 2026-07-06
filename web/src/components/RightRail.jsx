@@ -11,13 +11,15 @@ export default function RightRail({
   onSettings,
   settingsIcon = "⚙",
   settingsLabel = "Settings",
+  minDetailLevel = 1,
+  maxDetailLevel = 5,
 }) {
   function commitDetail(event) {
     onDetailCommit(Number(event.currentTarget.value));
   }
 
   function adjustDetail(delta) {
-    const nextDetail = Math.max(1, Math.min(5, detailLevel + delta));
+    const nextDetail = Math.max(minDetailLevel, Math.min(maxDetailLevel, detailLevel + delta));
     onDetailPreview(nextDetail);
   }
 
@@ -46,8 +48,8 @@ export default function RightRail({
         </button>
         <input
           type="range"
-          min="1"
-          max="5"
+          min={minDetailLevel}
+          max={maxDetailLevel}
           value={detailLevel}
           onChange={(event) => onDetailPreview(Number(event.target.value))}
           onPointerUp={commitDetail}
