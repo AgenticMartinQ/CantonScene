@@ -96,7 +96,7 @@ export default function App() {
   const [selectedObjectId, setSelectedObjectId] = useState(null);
   const [trialEmail, setTrialEmail] = useState(() => loadTrialEmail());
   const [trialUserId, setTrialUserId] = useState(() => loadTrialUserId());
-  const [savedScenes, setSavedScenes] = useState(() => loadSavedScenes(loadTrialEmail()));
+  const [savedScenes, setSavedScenes] = useState(() => loadSavedScenes(loadTrialEmail(), loadTrialUserId()));
   const [trialUsage, setTrialUsage] = useState(() => loadTrialUsage(loadTrialEmail()));
   const [capturedMedia, setCapturedMedia] = useState(() => ({ type: "photo", url: getDailyDemoScene().mediaUrl, fit: "cover" }));
   const [processing, setProcessing] = useState(false);
@@ -223,8 +223,8 @@ export default function App() {
   }, [dailyDemoScene.id]);
 
   useEffect(() => {
-    persistSavedScenes(trialEmail, savedScenes);
-  }, [savedScenes, trialEmail]);
+    persistSavedScenes(trialEmail, savedScenes, trialUserId);
+  }, [savedScenes, trialEmail, trialUserId]);
 
   useEffect(() => {
     persistTrialUsage(trialEmail, trialUsage);
@@ -232,7 +232,7 @@ export default function App() {
 
   useEffect(() => {
     const cleanupUnsavedVideos = () => {
-      const savedPaths = new Set(loadSavedScenes(loadTrialEmail()).map((scene) => scene.storagePath).filter(Boolean));
+      const savedPaths = new Set(loadSavedScenes(loadTrialEmail(), loadTrialUserId()).map((scene) => scene.storagePath).filter(Boolean));
       const pathsToPurge = loadTemporaryVideoMedia()
         .map((item) => item.storagePath)
         .filter((path) => path && !savedPaths.has(path));
@@ -257,7 +257,7 @@ export default function App() {
         savedScenes.map(async (scene) => {
           if (!shouldRepairMediaUrl(scene)) return scene;
           try {
-            const { mediaUrl } = await getSignedMediaUrl(scene.storagePath);
+            const { mediaUrl } = await getSignedMediaUrl(scene.storagePath, { trialEmail, trialUserId });
             return { ...scene, mediaUrl };
           } catch (error) {
             console.warn(error);
@@ -272,7 +272,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [savedScenes, trialEmail]);
+  }, [savedScenes, trialEmail, trialUserId]);
 
   useEffect(() => {
     if (!toast) return;
@@ -1328,7 +1328,8 @@ export default function App() {
       setTrialSheetOpen(true);
       return;
     }
-    if (savedScenes.some((scene) => scene.id === activeScene.id)) {
+    const ownedScene = savedSceneForCurrentOwner(activeScene);
+    if (savedScenes.some((scene) => scene.id === ownedScene.id)) {
       if (activeScene.type === "video") trackTemporaryVideoMedia(activeScene);
       setSavedScenes((scenes) => scenes.filter((scene) => scene.id !== activeScene.id));
       setToast("Removed from Saved");
@@ -1339,7 +1340,7 @@ export default function App() {
       return;
     }
     setSavedScenes((scenes) => {
-      return [activeScene, ...scenes];
+      return [ownedScene, ...scenes];
     });
     untrackTemporaryVideoMedia(activeScene);
     setToast("Saved for practice");
@@ -1352,21 +1353,22 @@ export default function App() {
     persistTrialUserId(userId);
     setTrialEmail(email);
     setTrialUserId(userId);
-    const scenesForEmail = loadSavedScenes(email);
+    const scenesForEmail = loadSavedScenes(email, userId);
     const usageForEmail = loadTrialUsage(email);
     setTrialUsage(usageForEmail);
     setTrialSheetOpen(false);
     if (pendingIdentityAction === "favorite" && activeScene) {
-      if (scenesForEmail.some((scene) => scene.id === activeScene.id)) {
+      const ownedScene = savedSceneForOwner(activeScene, email, userId);
+      if (scenesForEmail.some((scene) => scene.id === ownedScene.id)) {
         if (activeScene.type === "video") trackTemporaryVideoMedia(activeScene);
-        setSavedScenes(scenesForEmail.filter((scene) => scene.id !== activeScene.id));
+        setSavedScenes(scenesForEmail.filter((scene) => scene.id !== ownedScene.id));
         setToast("Removed from Saved");
       } else if (!isDeveloperUnlimited(email) && scenesForEmail.length >= WEB_TRIAL_SAVE_LIMIT) {
         setSavedScenes(scenesForEmail);
         setToast(TRIAL_SAVE_LIMIT_MESSAGE);
       } else {
         untrackTemporaryVideoMedia(activeScene);
-        setSavedScenes([activeScene, ...scenesForEmail]);
+        setSavedScenes([ownedScene, ...scenesForEmail]);
         setToast("Saved for practice");
       }
     } else {
@@ -1441,6 +1443,19 @@ export default function App() {
       ...usage,
       [type]: Number(usage[type] || 0) + 1,
     }));
+  }
+
+  function savedSceneForCurrentOwner(scene) {
+    return savedSceneForOwner(scene, trialEmail, trialUserId);
+  }
+
+  function savedSceneForOwner(scene, email = "", userId = "") {
+    if (!scene || scene.isDemo || !scene.storagePath) return scene;
+    return {
+      ...scene,
+      trialEmail: scene.trialEmail || String(email || "").trim().toLowerCase(),
+      userId: scene.userId || userId || "",
+    };
   }
 
   function restoreScene(scene) {

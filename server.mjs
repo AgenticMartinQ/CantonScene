@@ -329,8 +329,24 @@ async function handleMediaUrl(req, res) {
   if (!secretKey()) throw new Error("Missing SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY");
   const url = new URL(req.url, `http://localhost:${port}`);
   const storagePath = url.searchParams.get("path") || "";
+  const trialEmail = normalizeEmail(url.searchParams.get("trial_email"));
+  const trialUserId = normalizeUuid(url.searchParams.get("trial_user_id"));
   if (!storagePath || storagePath.includes("..") || storagePath.startsWith("/")) {
     return sendJson(res, { error: "Invalid media path" }, 400);
+  }
+  if (!trialEmail && !trialUserId) {
+    return sendJson(res, { error: "Missing media owner" }, 401);
+  }
+  const [asset] = await supabaseSelect(
+    "media_assets",
+    "storage_path,user_id,trial_email",
+    `storage_path=eq.${encodeURIComponent(storagePath)}&limit=1`,
+  );
+  if (!asset) return sendJson(res, { error: "Media not found" }, 404);
+  const ownerMatchesUser = trialUserId && asset.user_id === trialUserId;
+  const ownerMatchesEmail = trialEmail && normalizeEmail(asset.trial_email) === trialEmail;
+  if (!ownerMatchesUser && !ownerMatchesEmail) {
+    return sendJson(res, { error: "Media does not belong to current user" }, 403);
   }
   const mediaUrl = await createSignedStorageUrl("media", storagePath, signedAudioUrlSeconds);
   return sendJson(res, { mediaUrl });

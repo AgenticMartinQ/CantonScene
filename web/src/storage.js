@@ -2,8 +2,12 @@ const emailKey = "cantonscene.trialEmail";
 const userIdKey = "cantonscene.trialUserId";
 const temporaryVideoMediaKey = "cantonscene.temporaryVideoMedia";
 
-function scenesKey(email) {
-  return `cantonscene.savedScenes.${email.toLowerCase()}`;
+function ownerKey(email = "", userId = "") {
+  return String(userId || email || "").trim().toLowerCase();
+}
+
+function scenesKey(email = "", userId = "") {
+  return `cantonscene.savedScenes.${ownerKey(email, userId)}`;
 }
 
 function trialUsageKey(email) {
@@ -64,22 +68,49 @@ export function persistTrialUsage(email = "", usage) {
   );
 }
 
-export function loadSavedScenes(email = "") {
-  if (!email) return [];
+function sceneBelongsToOwner(scene, email = "", userId = "") {
+  if (!scene) return false;
+  const ownerEmail = String(email || "").trim().toLowerCase();
+  const ownerUserId = String(userId || "").trim();
+  if (scene.isDemo || !scene.storagePath) return true;
+  if (ownerUserId && scene.userId === ownerUserId) return true;
+  if (ownerEmail && String(scene.trialEmail || "").trim().toLowerCase() === ownerEmail) return true;
+  return false;
+}
+
+function normalizeSavedScene(scene, email = "", userId = "") {
+  const normalized = scene?.previewUrl?.startsWith("blob:") ? { ...scene, previewUrl: "" } : scene;
+  if (normalized?.storagePath) return { ...normalized, mediaUrl: "", previewUrl: "" };
+  return normalized;
+}
+
+export function loadSavedScenes(email = "", userId = "") {
+  if (!email && !userId) return [];
   try {
-    const scenes = JSON.parse(localStorage.getItem(scenesKey(email)) || "[]");
-    return Array.isArray(scenes)
-      ? scenes.map((scene) => (scene?.previewUrl?.startsWith("blob:") ? { ...scene, previewUrl: "" } : scene))
-      : [];
+    const keys = [scenesKey(email, userId)];
+    if (userId && email) keys.push(scenesKey(email, ""));
+    const byId = new Map();
+    for (const key of [...new Set(keys)]) {
+      const scenes = JSON.parse(localStorage.getItem(key) || "[]");
+      if (!Array.isArray(scenes)) continue;
+      for (const scene of scenes) {
+        const normalized = normalizeSavedScene(scene, email, userId);
+        if (sceneBelongsToOwner(normalized, email, userId)) byId.set(normalized.id, normalized);
+      }
+    }
+    return [...byId.values()];
   } catch {
     return [];
   }
 }
 
-export function persistSavedScenes(email, scenes) {
-  if (!email) return;
-  const persistentScenes = scenes.slice(0, 3).map((scene) => (scene?.previewUrl?.startsWith("blob:") ? { ...scene, previewUrl: "" } : scene));
-  localStorage.setItem(scenesKey(email), JSON.stringify(persistentScenes));
+export function persistSavedScenes(email, scenes, userId = "") {
+  if (!email && !userId) return;
+  const persistentScenes = scenes
+    .filter((scene) => sceneBelongsToOwner(normalizeSavedScene(scene, email, userId), email, userId))
+    .slice(0, 3)
+    .map((scene) => normalizeSavedScene(scene, email, userId));
+  localStorage.setItem(scenesKey(email, userId), JSON.stringify(persistentScenes));
 }
 
 export function loadTemporaryVideoMedia() {

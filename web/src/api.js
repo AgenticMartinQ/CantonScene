@@ -35,8 +35,11 @@ export async function generateSceneAudio(sceneId) {
   return response.json();
 }
 
-export async function getSignedMediaUrl(storagePath) {
-  const response = await fetch(`/api/media-url?path=${encodeURIComponent(storagePath)}`);
+export async function getSignedMediaUrl(storagePath, { trialEmail = "", trialUserId = "" } = {}) {
+  const params = new URLSearchParams({ path: storagePath });
+  if (trialEmail) params.set("trial_email", trialEmail);
+  if (trialUserId) params.set("trial_user_id", trialUserId);
+  const response = await fetch(`/api/media-url?${params.toString()}`);
 
   if (!response.ok) {
     const errorText = await response.text();
