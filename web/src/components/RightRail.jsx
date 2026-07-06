@@ -9,6 +9,8 @@ export default function RightRail({
   onFavorite,
   favoriteActive,
   onSettings,
+  settingsIcon = "⚙",
+  settingsLabel = "Settings",
 }) {
   function commitDetail(event) {
     onDetailCommit(Number(event.currentTarget.value));
@@ -34,8 +36,8 @@ export default function RightRail({
         >
           {favoriteActive ? "♥" : "♡"}
         </button>
-        <button className="settings-button" aria-label="Settings" onClick={onSettings}>
-          ⚙
+        <button className="settings-button" aria-label={settingsLabel} onClick={onSettings}>
+          {settingsIcon}
         </button>
       </div>
       <div className="detail-slider" aria-label="Detail level">

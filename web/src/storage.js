@@ -10,6 +10,10 @@ function scenesKey(email = "", userId = "") {
   return `cantonscene.savedScenes.${ownerKey(email, userId)}`;
 }
 
+function vocabularyKey(email = "", userId = "") {
+  return `cantonscene.vocabulary.${ownerKey(email, userId)}`;
+}
+
 function trialUsageKey(email) {
   return `cantonscene.trialMediaUsage.${email.toLowerCase() || "session"}`;
 }
@@ -111,6 +115,50 @@ export function persistSavedScenes(email, scenes, userId = "") {
     .slice(0, 3)
     .map((scene) => normalizeSavedScene(scene, email, userId));
   localStorage.setItem(scenesKey(email, userId), JSON.stringify(persistentScenes));
+}
+
+function normalizeVocabularyItem(item) {
+  if (!item?.id || (!item.english && !item.cantonese)) return null;
+  return {
+    id: String(item.id),
+    english: String(item.english || ""),
+    cantonese: String(item.cantonese || ""),
+    jyutping: String(item.jyutping || ""),
+    audioUrl: String(item.audioUrl || ""),
+    sourceType: item.sourceType === "video" ? "video" : "photo",
+    sourceLabel: String(item.sourceLabel || ""),
+    sourceSceneId: String(item.sourceSceneId || ""),
+    sourceObjectId: String(item.sourceObjectId || ""),
+    latestScore: item.latestScore ? Number(item.latestScore) : null,
+    practicedAt: item.practicedAt || "",
+    createdAt: item.createdAt || new Date().toISOString(),
+  };
+}
+
+export function loadVocabularyItems(email = "", userId = "") {
+  if (!email && !userId) return [];
+  try {
+    const keys = [vocabularyKey(email, userId)];
+    if (userId && email) keys.push(vocabularyKey(email, ""));
+    const byId = new Map();
+    for (const key of [...new Set(keys)]) {
+      const items = JSON.parse(localStorage.getItem(key) || "[]");
+      if (!Array.isArray(items)) continue;
+      for (const item of items) {
+        const normalized = normalizeVocabularyItem(item);
+        if (normalized) byId.set(normalized.id, normalized);
+      }
+    }
+    return [...byId.values()].sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+  } catch {
+    return [];
+  }
+}
+
+export function persistVocabularyItems(email = "", items = [], userId = "") {
+  if (!email && !userId) return;
+  const normalizedItems = items.map(normalizeVocabularyItem).filter(Boolean).slice(0, 100);
+  localStorage.setItem(vocabularyKey(email, userId), JSON.stringify(normalizedItems));
 }
 
 export function loadTemporaryVideoMedia() {

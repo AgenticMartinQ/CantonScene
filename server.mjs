@@ -10,6 +10,7 @@ const env = await loadEnv();
 const port = Number(env.PORT || 8787);
 const host = env.HOST || "127.0.0.1";
 const signedAudioUrlSeconds = 60 * 60 * 24 * 7;
+const adminEmails = new Set(["martinqiao.ai@gmail.com"]);
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -38,7 +39,7 @@ export async function handleNodeRequest(req, res) {
       });
     }
 
-    if (req.url === "/api/costs" && req.method === "GET") {
+    if ((req.url === "/api/costs" || req.url?.startsWith("/api/costs?")) && req.method === "GET") {
       return await handleCostDashboard(req, res);
     }
 
@@ -294,6 +295,11 @@ async function handleGenerateSceneAudio(req, res) {
 async function handleCostDashboard(req, res) {
   requireEnv(["SUPABASE_URL"]);
   if (!secretKey()) throw new Error("Missing SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY");
+  const url = new URL(req.url, `http://localhost:${port}`);
+  const adminEmail = normalizeEmail(url.searchParams.get("admin_email"));
+  if (!adminEmails.has(adminEmail)) {
+    return sendJson(res, { error: "Admin access required" }, 403);
+  }
 
   let rows = [];
   try {

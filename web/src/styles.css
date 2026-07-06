@@ -207,6 +207,7 @@ button {
 .scene-sheet,
 .saved-sheet,
 .cost-sheet,
+.vocabulary-sheet,
 .trial-sheet,
 .toast {
   position: absolute;
@@ -252,7 +253,8 @@ button {
 
 .top-card small,
 .saved-sheet small,
-.scene-sheet small {
+.scene-sheet small,
+.vocabulary-sheet header small {
   display: block;
   color: var(--muted);
   font-size: 10px;
@@ -489,7 +491,7 @@ button {
   transform: translate(-50%, -50%);
   min-width: 126px;
   max-width: 172px;
-  padding: 10px 12px;
+  padding: 0;
   border-radius: 18px;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.46), rgba(255, 255, 255, 0.2));
   border: 1px solid rgba(255, 255, 255, 0.58);
@@ -498,6 +500,7 @@ button {
   backdrop-filter: blur(20px) saturate(1.25);
   -webkit-backdrop-filter: blur(20px) saturate(1.25);
   pointer-events: auto;
+  text-align: center;
 }
 
 .object-card.selected {
@@ -528,6 +531,38 @@ button {
   color: rgba(16, 23, 34, 0.58);
   font-size: 10px;
   font-weight: 760;
+}
+
+.object-card-select {
+  width: 100%;
+  min-height: 74px;
+  padding: 15px 28px 10px 12px;
+  border-radius: inherit;
+  background: transparent;
+  text-align: center;
+}
+
+.object-vocab-button {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #142031;
+  font-size: 20px;
+  font-weight: 920;
+  line-height: 1;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82), 0 8px 18px rgba(18, 25, 36, 0.18);
+}
+
+.object-vocab-button.saved {
+  background: rgba(41, 226, 111, 0.92);
+  color: #0e2417;
+  font-size: 16px;
 }
 
 .right-rail {
@@ -576,7 +611,7 @@ button {
 }
 
 .right-rail .settings-button {
-  font-size: 27px;
+  font-size: 24px;
 }
 
 .right-rail button.favorite-button.active {
@@ -741,6 +776,7 @@ button {
 .scene-sheet,
 .saved-sheet,
 .cost-sheet,
+.vocabulary-sheet,
 .trial-sheet {
   left: 18px;
   right: 18px;
@@ -906,8 +942,16 @@ button {
   overflow: hidden;
 }
 
+.vocabulary-sheet {
+  inset: auto 14px 14px;
+  top: 102px;
+  padding: 16px;
+  overflow: hidden;
+}
+
 .saved-sheet header,
-.cost-sheet header {
+.cost-sheet header,
+.vocabulary-sheet header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -915,14 +959,16 @@ button {
 }
 
 .saved-sheet header strong,
-.cost-sheet header strong {
+.cost-sheet header strong,
+.vocabulary-sheet header strong {
   display: block;
   margin-top: 2px;
   font-size: 20px;
 }
 
 .saved-sheet header em,
-.cost-sheet header em {
+.cost-sheet header em,
+.vocabulary-sheet header em {
   display: block;
   margin-top: 3px;
   color: rgba(17, 24, 33, 0.52);
@@ -1015,6 +1061,125 @@ button {
   text-align: right;
 }
 
+.vocabulary-search {
+  display: block;
+  margin-bottom: 10px;
+}
+
+.vocabulary-search span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.vocabulary-search input {
+  width: 100%;
+  height: 40px;
+  border: 1px solid rgba(17, 24, 33, 0.12);
+  border-radius: 16px;
+  padding: 0 12px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 720;
+  outline: none;
+}
+
+.vocabulary-list {
+  display: grid;
+  gap: 8px;
+  max-height: 430px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.vocabulary-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 12px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.62);
+}
+
+.vocabulary-copy {
+  min-width: 0;
+}
+
+.vocabulary-copy small,
+.vocabulary-copy strong,
+.vocabulary-copy span,
+.vocabulary-copy em,
+.vocabulary-copy b {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vocabulary-copy small {
+  color: rgba(17, 24, 33, 0.5);
+  font-size: 10px;
+  font-weight: 820;
+}
+
+.vocabulary-copy strong {
+  margin-top: 3px;
+  font-size: 19px;
+  font-weight: 880;
+}
+
+.vocabulary-copy span {
+  margin-top: 2px;
+  font-size: 13px;
+  font-weight: 780;
+}
+
+.vocabulary-copy em {
+  margin-top: 2px;
+  color: rgba(17, 24, 33, 0.54);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 760;
+}
+
+.vocabulary-copy b {
+  margin-top: 6px;
+  color: rgba(21, 105, 54, 0.9);
+  font-size: 11px;
+  font-weight: 820;
+}
+
+.vocabulary-actions {
+  display: grid;
+  grid-template-columns: 36px 64px 32px;
+  gap: 5px;
+  align-items: center;
+}
+
+.vocabulary-actions button {
+  height: 34px;
+  border-radius: 999px;
+  background: rgba(17, 24, 33, 0.08);
+  color: rgba(17, 24, 33, 0.82);
+  font-size: 12px;
+  font-weight: 860;
+}
+
+.vocabulary-actions button:first-child {
+  font-size: 15px;
+}
+
+.vocabulary-actions button:nth-child(2) {
+  background: #121821;
+  color: #fff;
+}
+
 .saved-segment {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -1038,6 +1203,10 @@ button {
   background: rgba(255, 255, 255, 0.86);
   color: #111821;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86);
+}
+
+.vocabulary-sheet .saved-segment {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .saved-count {
@@ -1328,8 +1497,14 @@ button {
     bottom: calc(var(--safe-bottom) + 12px);
   }
 
+  .vocabulary-sheet {
+    top: max(102px, calc(var(--safe-top) + 94px));
+    bottom: calc(var(--safe-bottom) + 12px);
+  }
+
   .saved-grid,
-  .cost-runs {
+  .cost-runs,
+  .vocabulary-list {
     max-height: calc(var(--app-viewport-height) - var(--safe-top) - var(--safe-bottom) - 210px);
   }
 }

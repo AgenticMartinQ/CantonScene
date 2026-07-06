@@ -8,10 +8,12 @@ import {
   loadTrialEmail,
   loadTrialUserId,
   loadTrialUsage,
+  loadVocabularyItems,
   persistSavedScenes,
   persistTrialEmail,
   persistTrialUserId,
   persistTrialUsage,
+  persistVocabularyItems,
   trackTemporaryVideoMedia,
   untrackTemporaryVideoMedia,
 } from "./storage.js";
@@ -25,6 +27,7 @@ import VideoNarrationCard from "./components/VideoNarrationCard.jsx";
 import SavedSheet from "./components/SavedSheet.jsx";
 import TrialIdentitySheet from "./components/TrialIdentitySheet.jsx";
 import CostDashboard from "./components/CostDashboard.jsx";
+import VocabularySheet from "./components/VocabularySheet.jsx";
 
 const WEB_TRIAL_SAVE_LIMIT = 3;
 const WEB_TRIAL_MEDIA_LIMIT = 5;
@@ -75,6 +78,7 @@ export default function App() {
   const uploadRef = useRef(null);
   const streamRef = useRef(null);
   const pendingUploadRef = useRef(null);
+  const pendingVocabularyObjectRef = useRef(null);
   const pressTimerRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const recordChunksRef = useRef([]);
@@ -97,6 +101,7 @@ export default function App() {
   const [trialEmail, setTrialEmail] = useState(() => loadTrialEmail());
   const [trialUserId, setTrialUserId] = useState(() => loadTrialUserId());
   const [savedScenes, setSavedScenes] = useState(() => loadSavedScenes(loadTrialEmail(), loadTrialUserId()));
+  const [vocabularyItems, setVocabularyItems] = useState(() => loadVocabularyItems(loadTrialEmail(), loadTrialUserId()));
   const [trialUsage, setTrialUsage] = useState(() => loadTrialUsage(loadTrialEmail()));
   const [capturedMedia, setCapturedMedia] = useState(() => ({ type: "photo", url: getDailyDemoScene().mediaUrl, fit: "cover" }));
   const [processing, setProcessing] = useState(false);
@@ -104,6 +109,7 @@ export default function App() {
   const [toast, setToast] = useState("");
   const [savedOpen, setSavedOpen] = useState(false);
   const [costOpen, setCostOpen] = useState(false);
+  const [vocabularyOpen, setVocabularyOpen] = useState(false);
   const [sceneSheetOpen, setSceneSheetOpen] = useState(false);
   const [railCollapsed, setRailCollapsed] = useState(true);
   const [sliderOpen, setSliderOpen] = useState(false);
@@ -140,6 +146,7 @@ export default function App() {
     [cameraLive, objects, capturedMedia, photoFrame],
   );
   const activeSceneSaved = Boolean(activeScene?.id && savedScenes.some((scene) => scene.id === activeScene.id));
+  const adminUser = isDeveloperUnlimited(trialEmail);
 
   useEffect(() => {
     return () => {
@@ -225,6 +232,10 @@ export default function App() {
   useEffect(() => {
     persistSavedScenes(trialEmail, savedScenes, trialUserId);
   }, [savedScenes, trialEmail, trialUserId]);
+
+  useEffect(() => {
+    persistVocabularyItems(trialEmail, vocabularyItems, trialUserId);
+  }, [trialEmail, trialUserId, vocabularyItems]);
 
   useEffect(() => {
     persistTrialUsage(trialEmail, trialUsage);
@@ -1092,17 +1103,12 @@ export default function App() {
     setNativePlaying(false);
   }
 
-  async function playNative() {
-    const listenText = activeScene?.type === "video"
-      ? activeScene?.cantoneseSummary
-      : selectedObject?.cantonese || activeScene?.cantoneseSummary;
-    const audioUrl = activeScene?.type === "video"
-      ? activeScene?.cantoneseAudioUrl
-      : selectedObject?.audioUrl || activeScene?.cantoneseAudioUrl;
-    const targetKey = audioUrl ? `audio:${audioUrl}` : `speech:${listenText || ""}`;
+  async function playCantoneseAudio({ text = "", audioUrl = "", targetPrefix = "native", emptyMessage = "Choose a word first." } = {}) {
+    const listenText = String(text || "");
+    const targetKey = audioUrl ? `${targetPrefix}:audio:${audioUrl}` : `${targetPrefix}:speech:${listenText}`;
 
     if (!listenText && !audioUrl) {
-      setToast(activeScene?.type === "video" ? "Narration audio is not ready yet." : "Choose an object first.");
+      setToast(emptyMessage);
       return;
     }
 
@@ -1179,6 +1185,21 @@ export default function App() {
     utterance.onerror = () => setNativePlaying(false);
     window.speechSynthesis.speak(utterance);
     setNativePlaying(true);
+  }
+
+  async function playNative() {
+    const listenText = activeScene?.type === "video"
+      ? activeScene?.cantoneseSummary
+      : selectedObject?.cantonese || activeScene?.cantoneseSummary;
+    const audioUrl = activeScene?.type === "video"
+      ? activeScene?.cantoneseAudioUrl
+      : selectedObject?.audioUrl || activeScene?.cantoneseAudioUrl;
+    await playCantoneseAudio({
+      text: listenText,
+      audioUrl,
+      targetPrefix: "native",
+      emptyMessage: activeScene?.type === "video" ? "Narration audio is not ready yet." : "Choose an object first.",
+    });
   }
 
   async function playDailyFocusName() {
@@ -1318,6 +1339,78 @@ export default function App() {
     };
   }
 
+  function vocabularyIdForObject(object) {
+    return [object?.english, object?.cantonese, object?.jyutping].map((value) => String(value || "").trim().toLowerCase()).join("|");
+  }
+
+  function vocabularyItemFromObject(object, scene = activeScene) {
+    const sceneType = scene?.type === "video" ? "video" : "photo";
+    return {
+      id: vocabularyIdForObject(object),
+      english: object?.english || "",
+      cantonese: object?.cantonese || "",
+      jyutping: object?.jyutping || "",
+      audioUrl: object?.audioUrl || "",
+      sourceType: sceneType,
+      sourceLabel: scene?.isDemo ? "Today’s demo" : sceneType === "video" ? "Video" : "Photo",
+      sourceSceneId: scene?.id || "",
+      sourceObjectId: object?.id || "",
+      createdAt: new Date().toISOString(),
+    };
+  }
+
+  function objectSavedToVocabulary(object) {
+    const vocabularyId = vocabularyIdForObject(object);
+    return Boolean(vocabularyId && vocabularyItems.some((item) => item.id === vocabularyId));
+  }
+
+  function toggleObjectVocabulary(object, options = {}) {
+    if (!object) return;
+    if (!trialEmail && !trialUserId && !options.identityReady) {
+      pendingVocabularyObjectRef.current = object;
+      setPendingIdentityAction("vocabulary");
+      setTrialSheetOpen(true);
+      return;
+    }
+
+    const item = vocabularyItemFromObject(object);
+    setVocabularyItems((items) => {
+      if (items.some((existing) => existing.id === item.id)) {
+        setToast("Removed from Vocabulary");
+        return items.filter((existing) => existing.id !== item.id);
+      }
+      setToast("Added to Vocabulary");
+      return [item, ...items];
+    });
+  }
+
+  async function playVocabularyItem(item) {
+    await playCantoneseAudio({
+      text: item?.cantonese || item?.english || "",
+      audioUrl: item?.audioUrl || "",
+      targetPrefix: `vocabulary:${item?.id || ""}`,
+      emptyMessage: "Vocabulary audio is not ready yet.",
+    });
+  }
+
+  function practiceVocabularyItem(item) {
+    const matchingObject = objects.find((object) => vocabularyIdForObject(object) === item.id || object.id === item.sourceObjectId);
+    if (matchingObject) {
+      setSelectedObjectId(matchingObject.id);
+      setSceneSheetOpen(true);
+      setVocabularyOpen(false);
+      setLatestScore(null);
+      setToast("Use Repeat to practice this word.");
+      return;
+    }
+    setToast("Open the source scene to practice with Repeat.");
+  }
+
+  function deleteVocabularyItem(itemId) {
+    setVocabularyItems((items) => items.filter((item) => item.id !== itemId));
+    setToast("Removed from Vocabulary");
+  }
+
   function saveActiveScene() {
     if (!activeScene) {
       setToast("Capture or upload a scene first.");
@@ -1354,6 +1447,7 @@ export default function App() {
     setTrialEmail(email);
     setTrialUserId(userId);
     const scenesForEmail = loadSavedScenes(email, userId);
+    const vocabularyForEmail = loadVocabularyItems(email, userId);
     const usageForEmail = loadTrialUsage(email);
     setTrialUsage(usageForEmail);
     setTrialSheetOpen(false);
@@ -1371,8 +1465,21 @@ export default function App() {
         setSavedScenes([ownedScene, ...scenesForEmail]);
         setToast("Saved for practice");
       }
+      setVocabularyItems(vocabularyForEmail);
+    } else if (pendingIdentityAction === "vocabulary" && pendingVocabularyObjectRef.current) {
+      const pendingVocabularyItem = vocabularyItemFromObject(pendingVocabularyObjectRef.current);
+      pendingVocabularyObjectRef.current = null;
+      setSavedScenes(scenesForEmail);
+      if (vocabularyForEmail.some((item) => item.id === pendingVocabularyItem.id)) {
+        setVocabularyItems(vocabularyForEmail.filter((item) => item.id !== pendingVocabularyItem.id));
+        setToast("Removed from Vocabulary");
+      } else {
+        setVocabularyItems([pendingVocabularyItem, ...vocabularyForEmail]);
+        setToast("Added to Vocabulary");
+      }
     } else {
       setSavedScenes(scenesForEmail);
+      setVocabularyItems(vocabularyForEmail);
       if (pendingIdentityAction === "camera" && isMediaLimitReached("photo", usageForEmail) && isMediaLimitReached("video", usageForEmail)) {
         setToast(TRIAL_MEDIA_LIMIT_MESSAGE);
       } else if (pendingIdentityAction === "upload" && pendingUploadRef.current) {
@@ -1478,6 +1585,7 @@ export default function App() {
     setSceneSheetOpen(false);
     setSavedOpen(false);
     setCostOpen(false);
+    setVocabularyOpen(false);
     setSliderOpen(false);
     if (!processing) setCurrentMediaBlob(null);
     setLatestScore(null);
@@ -1588,11 +1696,13 @@ export default function App() {
               object={object}
               language={language}
               selected={object.id === selectedObjectId}
+              vocabularySaved={objectSavedToVocabulary(object)}
               onSelect={(id) => {
                 setSelectedObjectId(id);
                 setSceneSheetOpen(true);
                 setLatestScore(null);
               }}
+              onToggleVocabulary={toggleObjectVocabulary}
             />
           ))}
         </section>
@@ -1615,8 +1725,21 @@ export default function App() {
           onSettings={() => {
             stopCameraStream();
             setSavedOpen(false);
-            setCostOpen(true);
+            if (adminUser) {
+              setVocabularyOpen(false);
+              setCostOpen(true);
+            } else {
+              if (!trialEmail && !trialUserId) {
+                setPendingIdentityAction("vocabulary");
+                setTrialSheetOpen(true);
+                return;
+              }
+              setCostOpen(false);
+              setVocabularyOpen(true);
+            }
           }}
+          settingsIcon={adminUser ? "⚙" : "字"}
+          settingsLabel={adminUser ? "Open AI cost dashboard" : "Open vocabulary"}
         />
 
         <ShutterControls
@@ -1635,12 +1758,14 @@ export default function App() {
             stopCameraStream();
             setSavedOpen(false);
             setCostOpen(false);
+            setVocabularyOpen(false);
             setToast("Choose a photo or video.");
             uploadRef.current?.click();
           }}
           onCamera={async () => {
             setSavedOpen(false);
             setCostOpen(false);
+            setVocabularyOpen(false);
             if (cameraLive) {
               setToast("Camera live view ready");
               return;
@@ -1656,6 +1781,7 @@ export default function App() {
               return;
             }
             setCostOpen(false);
+            setVocabularyOpen(false);
             setSavedOpen(true);
           }}
         />
@@ -1693,11 +1819,22 @@ export default function App() {
           />
         ) : null}
 
-        {costOpen ? <CostDashboard onClose={() => setCostOpen(false)} /> : null}
+        {costOpen ? <CostDashboard adminEmail={trialEmail} onClose={() => setCostOpen(false)} /> : null}
+
+        {vocabularyOpen ? (
+          <VocabularySheet
+            items={vocabularyItems}
+            trialEmail={trialEmail}
+            onClose={() => setVocabularyOpen(false)}
+            onPlay={playVocabularyItem}
+            onPractice={practiceVocabularyItem}
+            onDelete={deleteVocabularyItem}
+          />
+        ) : null}
 
         {trialSheetOpen ? (
           <TrialIdentitySheet
-            reason={pendingIdentityAction === "camera" ? "camera" : pendingIdentityAction === "upload" ? "upload" : "save"}
+            reason={pendingIdentityAction === "camera" ? "camera" : pendingIdentityAction === "upload" ? "upload" : pendingIdentityAction === "vocabulary" ? "vocabulary" : "save"}
             bypassEmails={DEV_UNLIMITED_EMAILS}
             onSubmit={setTrialIdentity}
             onClose={() => {

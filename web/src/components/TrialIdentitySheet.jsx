@@ -76,7 +76,13 @@ export default function TrialIdentitySheet({ reason = "save", bypassEmails = new
       </button>
       <small>Web trial</small>
       <h1>
-        {reason === "camera" ? "Register to capture" : reason === "upload" ? "Register to upload" : "Save up to 3 scenes"}
+        {reason === "camera"
+          ? "Register to capture"
+          : reason === "upload"
+            ? "Register to upload"
+            : reason === "vocabulary"
+              ? "Build your vocabulary"
+              : "Save up to 3 scenes"}
       </h1>
       <p>
         {step === "code"
@@ -85,7 +91,9 @@ export default function TrialIdentitySheet({ reason = "save", bypassEmails = new
             ? "Verify your email once this session to use the camera shutter."
             : reason === "upload"
               ? "Verify your email once this session to analyze an uploaded photo or video."
-              : "Verify your email to keep a small trial library in this browser."}
+              : reason === "vocabulary"
+                ? "Verify your email to keep a personal word bank in this browser."
+                : "Verify your email to keep a small trial library in this browser."}
       </p>
       <form onSubmit={submit}>
         {step === "email" ? (

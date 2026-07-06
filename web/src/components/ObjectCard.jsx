@@ -17,14 +17,25 @@ function cardContent(object, language) {
   );
 }
 
-export default function ObjectCard({ object, language, selected, onSelect }) {
+export default function ObjectCard({ object, language, selected, vocabularySaved, onSelect, onToggleVocabulary }) {
   return (
-    <button
+    <div
       className={`object-card ${selected ? "selected" : ""}`}
       style={{ left: `${object.x}%`, top: `${object.y}%`, zIndex: selected ? 12 : 1 }}
-      onClick={() => onSelect(object.id)}
     >
-      {cardContent(object, language)}
-    </button>
+      <button className="object-card-select" onClick={() => onSelect(object.id)}>
+        {cardContent(object, language)}
+      </button>
+      <button
+        className={`object-vocab-button ${vocabularySaved ? "saved" : ""}`}
+        aria-label={vocabularySaved ? `Remove ${object.english} from vocabulary` : `Add ${object.english} to vocabulary`}
+        onClick={(event) => {
+          event.stopPropagation();
+          onToggleVocabulary(object);
+        }}
+      >
+        {vocabularySaved ? "✓" : "+"}
+      </button>
+    </div>
   );
 }

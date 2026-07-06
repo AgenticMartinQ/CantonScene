@@ -17,13 +17,13 @@ function labelTask(taskType) {
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-export default function CostDashboard({ onClose }) {
+export default function CostDashboard({ adminEmail = "", onClose }) {
   const [dashboard, setDashboard] = useState(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
-    getCostDashboard()
+    getCostDashboard({ adminEmail })
       .then((nextDashboard) => {
         if (!cancelled) setDashboard(nextDashboard);
       })
@@ -33,7 +33,7 @@ export default function CostDashboard({ onClose }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [adminEmail]);
 
   const summary = dashboard?.summary;
   const tasks = summary?.byTask || [];

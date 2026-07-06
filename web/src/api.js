@@ -49,8 +49,10 @@ export async function getSignedMediaUrl(storagePath, { trialEmail = "", trialUse
   return response.json();
 }
 
-export async function getCostDashboard() {
-  const response = await fetch("/api/costs");
+export async function getCostDashboard({ adminEmail = "" } = {}) {
+  const params = new URLSearchParams();
+  if (adminEmail) params.set("admin_email", adminEmail);
+  const response = await fetch(`/api/costs${params.toString() ? `?${params.toString()}` : ""}`);
 
   if (!response.ok) {
     const errorText = await response.text();
