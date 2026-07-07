@@ -18,16 +18,18 @@ MIN_HEIGHT = 1920
 TARGET_ASPECT = 9 / 16
 ASPECT_TOLERANCE = 0.012
 MIN_BYTES = 150 * 1024
-MIN_DETAIL_SCORE = 18
+MIN_DETAIL_SCORE = 55
 WARN_SIDE_PANEL_SCORE = 115
 FAIL_SIDE_PANEL_SCORE = 165
 
 
-def referenced_images() -> tuple[list[str], int]:
+def referenced_images() -> tuple[list[tuple[str, str]], set[str], int]:
     text = MOCK_DATA.read_text(encoding="utf-8")
-    names = re.findall(r'file:\s*"([^"]+)"', text)
+    blocked_match = re.search(r"blockedDemoSlugs\s*=\s*new Set\(\[(.*?)\]\)", text, flags=re.DOTALL)
+    blocked_slugs = set(re.findall(r'"([^"]+)"', blocked_match.group(1))) if blocked_match else set()
+    scene_blocks = re.findall(r'\{\s*slug:\s*"([^"]+)".*?file:\s*"([^"]+)"', text, flags=re.DOTALL)
     scene_count = len(re.findall(r'^\s+slug:\s*"[^"]+"', text, flags=re.MULTILINE))
-    return names, scene_count
+    return scene_blocks, blocked_slugs, scene_count
 
 
 def detail_score(image: Image.Image) -> float:
@@ -93,7 +95,9 @@ def main() -> int:
     warnings: list[str] = []
     rows: list[dict[str, object]] = []
 
-    names, scene_count = referenced_images()
+    scene_refs, blocked_slugs, scene_count = referenced_images()
+    names = [name for _, name in scene_refs]
+    blocked_names = {name for slug, name in scene_refs if slug in blocked_slugs}
     if not names:
         failures.append("mockData.js: no demo image references found")
     if scene_count and len(names) != scene_count:
@@ -133,8 +137,10 @@ def main() -> int:
             failures.append(f"{name}: aspect {aspect:.3f}, expected near 9:16")
         if bytes_size < MIN_BYTES:
             failures.append(f"{name}: {bytes_size // 1024}KB, likely over-compressed")
-        if detail < MIN_DETAIL_SCORE:
+        if detail < MIN_DETAIL_SCORE and name not in blocked_names:
             failures.append(f"{name}: detail score {detail:.1f}, likely too blurry")
+        elif detail < MIN_DETAIL_SCORE:
+            warnings.append(f"{name}: quarantined from rotation because detail score is {detail:.1f}")
         if side_score >= FAIL_SIDE_PANEL_SCORE:
             failures.append(f"{name}: side-panel score {side_score:.1f} at {side_label}, likely contains an edge artifact")
         elif side_score >= WARN_SIDE_PANEL_SCORE:

@@ -1,5 +1,16 @@
 const monthlyDemoPack = "2026-06";
 
+const blockedDemoSlugs = new Set([
+  "mtr-platform",
+  "rainy-taxi-stand",
+  "school-crossing",
+  "dai-pai-dong",
+  "mtr-exit",
+  "ferry-interior",
+  "apartment-mailboxes",
+  "airport-express-platform",
+]);
+
 const cardPositions = [
   { x: 8, y: 46 },
   { x: 44, y: 32 },
@@ -460,7 +471,7 @@ function dateKey(date = new Date()) {
 
 function sceneIndexForDate(date = new Date()) {
   const day = Number(dateParts(date).day || 1);
-  return (day - 1) % sceneSeeds.length;
+  return (day - 1) % dailyDemoScenes.length;
 }
 
 function cardFromSeed(seed, index, sceneSlug) {
@@ -483,6 +494,7 @@ function cardFromSeed(seed, index, sceneSlug) {
 export const dailyDemoScenes = sceneSeeds.map((scene, sceneIndex) => ({
   ...scene,
   id: `${monthlyDemoPack}-${scene.slug}`,
+  qaBlocked: blockedDemoSlugs.has(scene.slug),
   focusCantonese: focusCantoneseBySlug[scene.slug] || "",
   focusAudioUrl: demoAudioUrl(scene.slug, "focus"),
   mediaUrl: `/assets/demo-scenes/monthly/${scene.file}`,
@@ -490,9 +502,15 @@ export const dailyDemoScenes = sceneSeeds.map((scene, sceneIndex) => ({
   dayOfMonth: sceneIndex + 1,
 }));
 
+export const activeDailyDemoScenes = dailyDemoScenes.filter((scene) => !scene.qaBlocked);
+
 export function getDailyDemoScene(date = new Date()) {
   const key = dateKey(date);
-  const scene = dailyDemoScenes[sceneIndexForDate(date)];
+  const startIndex = sceneIndexForDate(date);
+  let scene = dailyDemoScenes[startIndex];
+  for (let offset = 0; offset < dailyDemoScenes.length && scene?.qaBlocked; offset += 1) {
+    scene = dailyDemoScenes[(startIndex + offset + 1) % dailyDemoScenes.length];
+  }
   return {
     ...scene,
     id: `daily-demo-${key}-${scene.slug}`,
