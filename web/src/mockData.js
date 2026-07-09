@@ -1,14 +1,31 @@
 const monthlyDemoPack = "2026-06";
 
 const blockedDemoSlugs = new Set([
+  "wet-market-fruit-stall",
   "mtr-platform",
+  "star-ferry-pier",
+  "temple-street-night-market",
+  "green-minibus-stop",
+  "mid-levels-escalator",
+  "basketball-court-estate",
+  "seafood-restaurant-tanks",
+  "flower-market-stalls",
+  "wet-market-vegetables",
   "rainy-taxi-stand",
+  "hiking-trail-city-view",
+  "beach-barbecue-evening",
   "school-crossing",
+  "ifc-lunch-footbridge",
   "dai-pai-dong",
   "mtr-exit",
+  "park-tai-chi",
   "ferry-interior",
+  "supermarket-produce",
   "apartment-mailboxes",
   "airport-express-platform",
+  "soccer-pitch-high-rises",
+  "temple-courtyard-incense",
+  "harbourfront-cycling-path",
 ]);
 
 const cardPositions = [
@@ -508,8 +525,8 @@ export function getDailyDemoScene(date = new Date()) {
   const key = dateKey(date);
   const startIndex = sceneIndexForDate(date);
   let scene = dailyDemoScenes[startIndex];
-  for (let offset = 0; offset < dailyDemoScenes.length && scene?.qaBlocked; offset += 1) {
-    scene = dailyDemoScenes[(startIndex + offset + 1) % dailyDemoScenes.length];
+  if (scene?.qaBlocked && activeDailyDemoScenes.length) {
+    scene = activeDailyDemoScenes[startIndex % activeDailyDemoScenes.length];
   }
   return {
     ...scene,
