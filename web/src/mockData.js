@@ -1,31 +1,6 @@
 const monthlyDemoPack = "2026-06";
 
-const blockedDemoSlugs = new Set([
-  "wet-market-fruit-stall",
-  "mtr-platform",
-  "star-ferry-pier",
-  "temple-street-night-market",
-  "mid-levels-escalator",
-  "basketball-court-estate",
-  "seafood-restaurant-tanks",
-  "flower-market-stalls",
-  "wet-market-vegetables",
-  "rainy-taxi-stand",
-  "hiking-trail-city-view",
-  "beach-barbecue-evening",
-  "school-crossing",
-  "ifc-lunch-footbridge",
-  "dai-pai-dong",
-  "mtr-exit",
-  "park-tai-chi",
-  "ferry-interior",
-  "supermarket-produce",
-  "apartment-mailboxes",
-  "airport-express-platform",
-  "soccer-pitch-high-rises",
-  "temple-courtyard-incense",
-  "harbourfront-cycling-path",
-]);
+const blockedDemoSlugs = new Set([]);
 
 const cardPositions = [
   { x: 8, y: 46 },
