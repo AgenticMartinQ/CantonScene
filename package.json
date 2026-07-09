@@ -10,6 +10,7 @@
     "generate:demo-audio": "node scripts/generate_demo_audio.mjs",
     "qa:demo-audio": "node scripts/qa_demo_audio.mjs",
     "qa:demo-images": "python3 scripts/qa_demo_images.py",
+    "qa:demo-images:strict": "python3 scripts/qa_demo_images.py --strict-pool",
     "check": "node --check server.mjs && node --check app.js && pnpm run qa:demo-images && pnpm run qa:demo-audio && vite build --config web/vite.config.js"
   },
   "dependencies": {

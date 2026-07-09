@@ -5,7 +5,6 @@ const blockedDemoSlugs = new Set([
   "mtr-platform",
   "star-ferry-pier",
   "temple-street-night-market",
-  "green-minibus-stop",
   "mid-levels-escalator",
   "basketball-court-estate",
   "seafood-restaurant-tanks",
@@ -521,13 +520,35 @@ export const dailyDemoScenes = sceneSeeds.map((scene, sceneIndex) => ({
 
 export const activeDailyDemoScenes = dailyDemoScenes.filter((scene) => !scene.qaBlocked);
 
+function sceneForIndex(index, seen = new Map()) {
+  if (seen.has(index)) return seen.get(index);
+  const scene = dailyDemoScenes[index];
+  if (!scene?.qaBlocked) {
+    seen.set(index, scene);
+    return scene;
+  }
+  if (!activeDailyDemoScenes.length) return scene;
+  const recentWindowStart = Math.max(0, index - 6);
+  const recentSceneIds = new Set();
+  for (let previousIndex = recentWindowStart; previousIndex < index; previousIndex += 1) {
+    const previousScene = sceneForIndex(previousIndex, seen);
+    if (previousScene?.id) recentSceneIds.add(previousScene.id);
+  }
+  let candidates = activeDailyDemoScenes.filter((activeScene) => !recentSceneIds.has(activeScene.id));
+  if (!candidates.length && activeDailyDemoScenes.length > 1) {
+    const previousScene = sceneForIndex(index - 1, seen);
+    candidates = activeDailyDemoScenes.filter((activeScene) => activeScene.id !== previousScene?.id);
+  }
+  const fallbackPool = candidates.length ? candidates : activeDailyDemoScenes;
+  const fallback = fallbackPool[index % fallbackPool.length];
+  seen.set(index, fallback);
+  return fallback;
+}
+
 export function getDailyDemoScene(date = new Date()) {
   const key = dateKey(date);
   const startIndex = sceneIndexForDate(date);
-  let scene = dailyDemoScenes[startIndex];
-  if (scene?.qaBlocked && activeDailyDemoScenes.length) {
-    scene = activeDailyDemoScenes[startIndex % activeDailyDemoScenes.length];
-  }
+  const scene = sceneForIndex(startIndex);
   return {
     ...scene,
     id: `daily-demo-${key}-${scene.slug}`,

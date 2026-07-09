@@ -91,6 +91,7 @@ def make_contact_sheet(rows: list[dict[str, object]]) -> Path:
 
 
 def main() -> int:
+    strict_pool = "--strict-pool" in sys.argv
     failures: list[str] = []
     warnings: list[str] = []
     rows: list[dict[str, object]] = []
@@ -137,7 +138,7 @@ def main() -> int:
             failures.append(f"{name}: aspect {aspect:.3f}, expected near 9:16")
         if bytes_size < MIN_BYTES:
             failures.append(f"{name}: {bytes_size // 1024}KB, likely over-compressed")
-        if detail < MIN_DETAIL_SCORE and name not in blocked_names:
+        if detail < MIN_DETAIL_SCORE and (name not in blocked_names or strict_pool):
             failures.append(f"{name}: detail score {detail:.1f}, likely too blurry")
         elif detail < MIN_DETAIL_SCORE:
             warnings.append(f"{name}: quarantined from rotation because detail score is {detail:.1f}")
