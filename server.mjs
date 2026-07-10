@@ -10,7 +10,7 @@ const env = await loadEnv();
 const port = Number(env.PORT || 8787);
 const host = env.HOST || "127.0.0.1";
 const signedAudioUrlSeconds = 60 * 60 * 24 * 7;
-const adminEmails = new Set(["martinqiao.ai@gmail.com"]);
+const adminEmails = new Set(["martinqiao.ai@gmail.com", "agarwalmanoj2000@gmail.com"]);
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
